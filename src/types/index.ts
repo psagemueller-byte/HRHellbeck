@@ -1,3 +1,6 @@
+export const USER_ROLES = ["admin", "autor", "benutzer"] as const;
+export type UserRole = (typeof USER_ROLES)[number];
+
 export interface User {
   id: string;
   email: string;
@@ -5,6 +8,7 @@ export interface User {
   lastName: string;
   position: string;
   department: string;
+  role: UserRole;
   avatar?: string;
   phone: string;
   street: string;
@@ -14,6 +18,7 @@ export interface User {
   birthDate: string;
   startDate: string;
   managerId?: string;
+  isActive: boolean;
 }
 
 export interface VacationRequest {

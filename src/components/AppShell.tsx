@@ -10,7 +10,7 @@ import CookieConsent from "./CookieConsent";
 const PUBLIC_ROUTES = ["/login", "/datenschutz", "/impressum"];
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, hasRole } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
 
@@ -23,7 +23,10 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     if (isAuthenticated && pathname === "/login") {
       router.push("/dashboard");
     }
-  }, [isAuthenticated, pathname, isPublicRoute, router]);
+    if (isAuthenticated && pathname === "/admin" && !hasRole("admin")) {
+      router.push("/dashboard");
+    }
+  }, [isAuthenticated, pathname, isPublicRoute, hasRole, router]);
 
   if (isPublicRoute || !isAuthenticated) {
     return (
