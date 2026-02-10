@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth-context";
 import { Building2, Eye, EyeOff, ArrowRight } from "lucide-react";
+import Link from "next/link";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -11,6 +12,7 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [privacyAccepted, setPrivacyAccepted] = useState(false);
   const { login } = useAuth();
   const router = useRouter();
 
@@ -21,6 +23,12 @@ export default function LoginPage() {
 
     if (!email || !password) {
       setError("Bitte E-Mail und Passwort eingeben.");
+      setLoading(false);
+      return;
+    }
+
+    if (!privacyAccepted) {
+      setError("Bitte stimme der Datenschutzerklärung zu.");
       setLoading(false);
       return;
     }
@@ -133,22 +141,44 @@ export default function LoginPage() {
               </div>
             </div>
 
-            <div className="flex items-center justify-between">
-              <label className="flex items-center gap-2 cursor-pointer">
+            <div className="space-y-3">
+              <label className="flex items-start gap-2 cursor-pointer">
                 <input
                   type="checkbox"
-                  className="h-4 w-4 rounded border-[var(--color-border)] text-[var(--color-primary-600)] focus:ring-[var(--color-primary-500)]"
+                  checked={privacyAccepted}
+                  onChange={(e) => setPrivacyAccepted(e.target.checked)}
+                  className="mt-0.5 h-4 w-4 rounded border-[var(--color-border)] text-[var(--color-primary-600)] focus:ring-[var(--color-primary-500)]"
                 />
                 <span className="text-sm text-[var(--color-text-secondary)]">
-                  Angemeldet bleiben
+                  Ich habe die{" "}
+                  <Link
+                    href="/datenschutz"
+                    className="text-[var(--color-primary-600)] underline hover:text-[var(--color-primary-700)]"
+                    target="_blank"
+                  >
+                    Datenschutzerklärung
+                  </Link>{" "}
+                  gelesen und stimme der Verarbeitung meiner Daten zu.
                 </span>
               </label>
-              <button
-                type="button"
-                className="text-sm text-[var(--color-primary-600)] hover:text-[var(--color-primary-700)] font-medium"
-              >
-                Passwort vergessen?
-              </button>
+
+              <div className="flex items-center justify-between">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    className="h-4 w-4 rounded border-[var(--color-border)] text-[var(--color-primary-600)] focus:ring-[var(--color-primary-500)]"
+                  />
+                  <span className="text-sm text-[var(--color-text-secondary)]">
+                    Angemeldet bleiben
+                  </span>
+                </label>
+                <button
+                  type="button"
+                  className="text-sm text-[var(--color-primary-600)] hover:text-[var(--color-primary-700)] font-medium"
+                >
+                  Passwort vergessen?
+                </button>
+              </div>
             </div>
 
             <button
@@ -173,6 +203,21 @@ export default function LoginPage() {
               hr@hellbeck.de
             </span>
           </p>
+
+          <div className="mt-4 flex items-center justify-center gap-4">
+            <Link
+              href="/datenschutz"
+              className="text-xs text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)] underline"
+            >
+              Datenschutzerklärung
+            </Link>
+            <Link
+              href="/impressum"
+              className="text-xs text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)] underline"
+            >
+              Impressum
+            </Link>
+          </div>
         </div>
       </div>
     </div>

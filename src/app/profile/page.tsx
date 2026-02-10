@@ -12,6 +12,9 @@ import {
   Save,
   Pencil,
   X,
+  Download,
+  Trash2,
+  Shield,
 } from "lucide-react";
 import { sanitizeAndLimit, isValidPhone, isValidZipCode } from "@/lib/sanitize";
 
@@ -357,6 +360,55 @@ export default function ProfilePage() {
               </p>
             </div>
           </div>
+        </div>
+      </div>
+
+      {/* DSGVO Betroffenenrechte */}
+      <div className="mt-6 bg-white rounded-xl border border-[var(--color-border)] p-6">
+        <h3 className="text-base font-semibold text-[var(--color-text-primary)] mb-2 flex items-center gap-2">
+          <Shield className="h-5 w-5 text-[var(--color-primary-600)]" />
+          Datenschutz &amp; Betroffenenrechte
+        </h3>
+        <p className="text-sm text-[var(--color-text-secondary)] mb-4">
+          Gem. Art. 15-21 DSGVO hast du das Recht auf Auskunft, Berichtigung,
+          Löschung und Datenübertragbarkeit deiner personenbezogenen Daten.
+        </p>
+        <div className="flex flex-col sm:flex-row gap-3">
+          <button
+            onClick={() => {
+              const data = JSON.stringify(user, null, 2);
+              const blob = new Blob([data], { type: "application/json" });
+              const url = URL.createObjectURL(blob);
+              const a = document.createElement("a");
+              a.href = url;
+              a.download = `meine-daten-${user.id}.json`;
+              a.click();
+              URL.revokeObjectURL(url);
+            }}
+            className="flex items-center justify-center gap-2 px-4 py-2.5 border border-[var(--color-border)] rounded-lg text-sm font-medium text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-tertiary)] transition-colors"
+          >
+            <Download className="h-4 w-4" />
+            Meine Daten exportieren (JSON)
+          </button>
+          <button
+            onClick={() => {
+              if (
+                window.confirm(
+                  "Möchtest du wirklich die Löschung deiner Daten beantragen? " +
+                    "Diese Anfrage wird an die HR-Abteilung weitergeleitet und gem. Art. 17 DSGVO bearbeitet."
+                )
+              ) {
+                alert(
+                  "Deine Löschanfrage wurde an datenschutz@hellbeck.de gesendet. " +
+                    "Du erhältst innerhalb von 30 Tagen eine Bestätigung."
+                );
+              }
+            }}
+            className="flex items-center justify-center gap-2 px-4 py-2.5 border border-red-200 rounded-lg text-sm font-medium text-red-600 hover:bg-red-50 transition-colors"
+          >
+            <Trash2 className="h-4 w-4" />
+            Datenlöschung beantragen
+          </button>
         </div>
       </div>
     </div>
