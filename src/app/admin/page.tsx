@@ -15,8 +15,17 @@ import {
   Crown,
   PenTool,
   User as UserIcon,
+  UserPlus,
+  Trash2,
+  X,
+  Mail,
 } from "lucide-react";
-import { sanitizeAndLimit } from "@/lib/sanitize";
+import {
+  sanitizeAndLimit,
+  sanitizeString,
+  isValidEmail,
+  isValidPhone,
+} from "@/lib/sanitize";
 
 const roleConfig: Record<
   UserRole,
@@ -45,14 +54,36 @@ const roleConfig: Record<
   },
 };
 
+const EMPTY_INVITE = {
+  firstName: "",
+  lastName: "",
+  email: "",
+  position: "",
+  department: "",
+  phone: "",
+  role: "benutzer" as UserRole,
+};
+
 export default function AdminPage() {
-  const { user, allUsers, hasRole, updateUserRole, toggleUserActive } = useAuth();
+  const {
+    user,
+    allUsers,
+    hasRole,
+    updateUserRole,
+    toggleUserActive,
+    addUser,
+    removeUser,
+  } = useAuth();
   const router = useRouter();
   const [searchQuery, setSearchQuery] = useState("");
   const [roleFilter, setRoleFilter] = useState<UserRole | "alle">("alle");
+  const [showInviteForm, setShowInviteForm] = useState(false);
+  const [inviteData, setInviteData] = useState(EMPTY_INVITE);
+  const [inviteError, setInviteError] = useState("");
+  const [inviteSuccess, setInviteSuccess] = useState("");
   const [confirmAction, setConfirmAction] = useState<{
     userId: string;
-    action: "role" | "toggle";
+    action: "role" | "toggle" | "remove";
     newRole?: UserRole;
   } | null>(null);
 
@@ -83,13 +114,18 @@ export default function AdminPage() {
 
   const handleRoleChange = (userId: string, newRole: string) => {
     if (!USER_ROLES.includes(newRole as UserRole)) return;
-    if (userId === user.id) return; // Admin kann sich nicht selbst degradieren
+    if (userId === user.id) return;
     setConfirmAction({ userId, action: "role", newRole: newRole as UserRole });
   };
 
   const handleToggleActive = (userId: string) => {
-    if (userId === user.id) return; // Admin kann sich nicht selbst deaktivieren
+    if (userId === user.id) return;
     setConfirmAction({ userId, action: "toggle" });
+  };
+
+  const handleRemoveUser = (userId: string) => {
+    if (userId === user.id) return;
+    setConfirmAction({ userId, action: "remove" });
   };
 
   const executeAction = () => {
@@ -98,21 +134,90 @@ export default function AdminPage() {
       updateUserRole(confirmAction.userId, confirmAction.newRole);
     } else if (confirmAction.action === "toggle") {
       toggleUserActive(confirmAction.userId);
+    } else if (confirmAction.action === "remove") {
+      removeUser(confirmAction.userId);
     }
     setConfirmAction(null);
+  };
+
+  const handleInviteSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    setInviteError("");
+    setInviteSuccess("");
+
+    const cleaned = {
+      firstName: sanitizeAndLimit(inviteData.firstName, 100),
+      lastName: sanitizeAndLimit(inviteData.lastName, 100),
+      email: sanitizeString(inviteData.email).toLowerCase(),
+      position: sanitizeAndLimit(inviteData.position, 100),
+      department: sanitizeAndLimit(inviteData.department, 100),
+      phone: sanitizeAndLimit(inviteData.phone, 30),
+      role: inviteData.role,
+    };
+
+    if (!cleaned.firstName || !cleaned.lastName) {
+      setInviteError("Vor- und Nachname sind Pflichtfelder.");
+      return;
+    }
+    if (!isValidEmail(cleaned.email)) {
+      setInviteError("Bitte eine gültige E-Mail-Adresse eingeben.");
+      return;
+    }
+    if (!cleaned.position || !cleaned.department) {
+      setInviteError("Position und Abteilung sind Pflichtfelder.");
+      return;
+    }
+    if (cleaned.phone && !isValidPhone(cleaned.phone)) {
+      setInviteError("Bitte eine gültige Telefonnummer eingeben.");
+      return;
+    }
+    if (!USER_ROLES.includes(cleaned.role)) {
+      setInviteError("Ungültige Rolle.");
+      return;
+    }
+
+    const result = addUser({
+      ...cleaned,
+      street: "",
+      city: "",
+      zipCode: "",
+      country: "Deutschland",
+      birthDate: "",
+      startDate: new Date().toISOString().split("T")[0],
+    });
+
+    if (result.success) {
+      setInviteSuccess(`${cleaned.firstName} ${cleaned.lastName} wurde erfolgreich eingeladen.`);
+      setInviteData(EMPTY_INVITE);
+      setTimeout(() => {
+        setInviteSuccess("");
+        setShowInviteForm(false);
+      }, 2000);
+    } else {
+      setInviteError(result.error || "Fehler beim Anlegen des Nutzers.");
+    }
   };
 
   return (
     <div className="max-w-6xl mx-auto">
       {/* Header */}
-      <div className="mb-8">
-        <h1 className="text-2xl font-bold text-[var(--color-text-primary)] flex items-center gap-3">
-          <Shield className="h-7 w-7 text-[var(--color-primary-600)]" />
-          Administration
-        </h1>
-        <p className="text-[var(--color-text-secondary)] mt-1">
-          Nutzerverwaltung — Rollen und Zugriffsrechte verwalten
-        </p>
+      <div className="flex items-center justify-between mb-8">
+        <div>
+          <h1 className="text-2xl font-bold text-[var(--color-text-primary)] flex items-center gap-3">
+            <Shield className="h-7 w-7 text-[var(--color-primary-600)]" />
+            Administration
+          </h1>
+          <p className="text-[var(--color-text-secondary)] mt-1">
+            Nutzerverwaltung — Rollen und Zugriffsrechte verwalten
+          </p>
+        </div>
+        <button
+          onClick={() => setShowInviteForm(true)}
+          className="flex items-center gap-2 bg-[var(--color-primary-600)] hover:bg-[var(--color-primary-700)] text-white font-medium py-2.5 px-4 rounded-lg transition-colors"
+        >
+          <UserPlus className="h-4 w-4" />
+          Nutzer einladen
+        </button>
       </div>
 
       {/* Stats */}
@@ -145,19 +250,12 @@ export default function AdminPage() {
           ([role, config]) => {
             const Icon = config.icon;
             return (
-              <div
-                key={role}
-                className={`rounded-xl border p-4 ${config.bg}`}
-              >
+              <div key={role} className={`rounded-xl border p-4 ${config.bg}`}>
                 <div className="flex items-center gap-2 mb-2">
                   <Icon className={`h-5 w-5 ${config.color}`} />
-                  <h3 className={`text-sm font-semibold ${config.color}`}>
-                    {config.label}
-                  </h3>
+                  <h3 className={`text-sm font-semibold ${config.color}`}>{config.label}</h3>
                 </div>
-                <p className="text-xs text-[var(--color-text-secondary)]">
-                  {config.description}
-                </p>
+                <p className="text-xs text-[var(--color-text-secondary)]">{config.description}</p>
               </div>
             );
           }
@@ -211,7 +309,6 @@ export default function AdminPage() {
 
             return (
               <div key={u.id} className="px-5 py-4 flex items-center gap-4">
-                {/* Avatar */}
                 <div
                   className={`h-10 w-10 rounded-full flex items-center justify-center text-sm font-semibold flex-shrink-0 ${
                     u.isActive
@@ -223,7 +320,6 @@ export default function AdminPage() {
                   {u.lastName[0]}
                 </div>
 
-                {/* Info */}
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
                     <span
@@ -251,9 +347,10 @@ export default function AdminPage() {
                   </p>
                 </div>
 
-                {/* Role selector */}
                 <div className="flex items-center gap-2 flex-shrink-0">
-                  <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-xs font-medium ${config.bg} ${config.color}`}>
+                  <div
+                    className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-xs font-medium ${config.bg} ${config.color}`}
+                  >
                     <RoleIcon className="h-3.5 w-3.5" />
                     {config.label}
                   </div>
@@ -274,16 +371,24 @@ export default function AdminPage() {
                         onClick={() => handleToggleActive(u.id)}
                         className={`p-1.5 rounded-lg transition-colors ${
                           u.isActive
-                            ? "text-red-500 hover:bg-red-50"
+                            ? "text-amber-500 hover:bg-amber-50"
                             : "text-green-500 hover:bg-green-50"
                         }`}
-                        title={u.isActive ? "Deaktivieren" : "Aktivieren"}
+                        title={u.isActive ? "Sperren" : "Entsperren"}
                       >
                         {u.isActive ? (
                           <UserX className="h-4 w-4" />
                         ) : (
                           <UserCheck className="h-4 w-4" />
                         )}
+                      </button>
+
+                      <button
+                        onClick={() => handleRemoveUser(u.id)}
+                        className="p-1.5 rounded-lg text-red-500 hover:bg-red-50 transition-colors"
+                        title="Endgültig entfernen"
+                      >
+                        <Trash2 className="h-4 w-4" />
                       </button>
                     </>
                   )}
@@ -300,16 +405,197 @@ export default function AdminPage() {
         </div>
       </div>
 
+      {/* Invite modal */}
+      {showInviteForm && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl w-full max-w-lg p-6">
+            <div className="flex items-center justify-between mb-6">
+              <div className="flex items-center gap-3">
+                <div className="h-10 w-10 rounded-lg bg-[var(--color-primary-50)] flex items-center justify-center">
+                  <UserPlus className="h-5 w-5 text-[var(--color-primary-600)]" />
+                </div>
+                <h2 className="text-lg font-bold text-[var(--color-text-primary)]">
+                  Nutzer einladen
+                </h2>
+              </div>
+              <button
+                onClick={() => {
+                  setShowInviteForm(false);
+                  setInviteError("");
+                  setInviteSuccess("");
+                  setInviteData(EMPTY_INVITE);
+                }}
+                className="h-8 w-8 rounded-lg hover:bg-[var(--color-surface-tertiary)] flex items-center justify-center"
+              >
+                <X className="h-5 w-5 text-[var(--color-text-secondary)]" />
+              </button>
+            </div>
+
+            <form onSubmit={handleInviteSubmit} className="space-y-4">
+              {inviteError && (
+                <div className="bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-3 rounded-lg">
+                  {inviteError}
+                </div>
+              )}
+              {inviteSuccess && (
+                <div className="bg-green-50 border border-green-200 text-green-700 text-sm px-4 py-3 rounded-lg">
+                  {inviteSuccess}
+                </div>
+              )}
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-[var(--color-text-primary)] mb-1.5">
+                    Vorname *
+                  </label>
+                  <input
+                    type="text"
+                    value={inviteData.firstName}
+                    onChange={(e) => setInviteData({ ...inviteData, firstName: e.target.value })}
+                    maxLength={100}
+                    className="w-full px-3 py-2.5 border border-[var(--color-border)] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary-500)]"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-[var(--color-text-primary)] mb-1.5">
+                    Nachname *
+                  </label>
+                  <input
+                    type="text"
+                    value={inviteData.lastName}
+                    onChange={(e) => setInviteData({ ...inviteData, lastName: e.target.value })}
+                    maxLength={100}
+                    className="w-full px-3 py-2.5 border border-[var(--color-border)] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary-500)]"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-[var(--color-text-primary)] mb-1.5">
+                  E-Mail-Adresse *
+                </label>
+                <div className="relative">
+                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[var(--color-text-muted)]" />
+                  <input
+                    type="email"
+                    value={inviteData.email}
+                    onChange={(e) => setInviteData({ ...inviteData, email: e.target.value })}
+                    placeholder="name@hellbeck.de"
+                    maxLength={254}
+                    className="w-full pl-10 pr-4 py-2.5 border border-[var(--color-border)] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary-500)]"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-[var(--color-text-primary)] mb-1.5">
+                    Position *
+                  </label>
+                  <input
+                    type="text"
+                    value={inviteData.position}
+                    onChange={(e) => setInviteData({ ...inviteData, position: e.target.value })}
+                    maxLength={100}
+                    className="w-full px-3 py-2.5 border border-[var(--color-border)] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary-500)]"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-[var(--color-text-primary)] mb-1.5">
+                    Abteilung *
+                  </label>
+                  <input
+                    type="text"
+                    value={inviteData.department}
+                    onChange={(e) => setInviteData({ ...inviteData, department: e.target.value })}
+                    maxLength={100}
+                    className="w-full px-3 py-2.5 border border-[var(--color-border)] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary-500)]"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-[var(--color-text-primary)] mb-1.5">
+                  Telefon (optional)
+                </label>
+                <input
+                  type="tel"
+                  value={inviteData.phone}
+                  onChange={(e) => setInviteData({ ...inviteData, phone: e.target.value })}
+                  placeholder="+49 170 1234567"
+                  maxLength={30}
+                  className="w-full px-3 py-2.5 border border-[var(--color-border)] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary-500)]"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-[var(--color-text-primary)] mb-1.5">
+                  Rolle
+                </label>
+                <select
+                  value={inviteData.role}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    if (USER_ROLES.includes(val as UserRole)) {
+                      setInviteData({ ...inviteData, role: val as UserRole });
+                    }
+                  }}
+                  className="w-full px-3 py-2.5 border border-[var(--color-border)] rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[var(--color-primary-500)]"
+                >
+                  <option value="benutzer">Benutzer</option>
+                  <option value="autor">Autor</option>
+                  <option value="admin">Administrator</option>
+                </select>
+              </div>
+
+              <div className="flex gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowInviteForm(false);
+                    setInviteError("");
+                    setInviteSuccess("");
+                    setInviteData(EMPTY_INVITE);
+                  }}
+                  className="flex-1 px-4 py-2.5 border border-[var(--color-border)] rounded-lg text-sm font-medium text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-tertiary)] transition-colors"
+                >
+                  Abbrechen
+                </button>
+                <button
+                  type="submit"
+                  className="flex-1 px-4 py-2.5 bg-[var(--color-primary-600)] hover:bg-[var(--color-primary-700)] text-white rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2"
+                >
+                  <UserPlus className="h-4 w-4" />
+                  Einladen
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
       {/* Confirm modal */}
       {confirmAction && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl w-full max-w-md p-6">
             <div className="flex items-center gap-3 mb-4">
-              <div className="h-10 w-10 rounded-lg bg-amber-100 flex items-center justify-center">
-                <ShieldAlert className="h-5 w-5 text-amber-600" />
+              <div
+                className={`h-10 w-10 rounded-lg flex items-center justify-center ${
+                  confirmAction.action === "remove"
+                    ? "bg-red-100"
+                    : "bg-amber-100"
+                }`}
+              >
+                {confirmAction.action === "remove" ? (
+                  <Trash2 className="h-5 w-5 text-red-600" />
+                ) : (
+                  <ShieldAlert className="h-5 w-5 text-amber-600" />
+                )}
               </div>
               <h2 className="text-lg font-bold text-[var(--color-text-primary)]">
-                Änderung bestätigen
+                {confirmAction.action === "remove"
+                  ? "Nutzer entfernen"
+                  : "Änderung bestätigen"}
               </h2>
             </div>
 
@@ -317,6 +603,18 @@ export default function AdminPage() {
               const targetUser = allUsers.find((u) => u.id === confirmAction.userId);
               if (!targetUser) return null;
 
+              if (confirmAction.action === "remove") {
+                return (
+                  <p className="text-sm text-[var(--color-text-secondary)] mb-6">
+                    Möchtest du{" "}
+                    <span className="font-semibold">
+                      {targetUser.firstName} {targetUser.lastName}
+                    </span>{" "}
+                    ({targetUser.email}) <strong>endgültig entfernen</strong>?
+                    Diese Aktion kann nicht rückgängig gemacht werden.
+                  </p>
+                );
+              }
               if (confirmAction.action === "role" && confirmAction.newRole) {
                 return (
                   <p className="text-sm text-[var(--color-text-secondary)] mb-6">
@@ -342,7 +640,7 @@ export default function AdminPage() {
                   <span className="font-semibold">
                     {targetUser.firstName} {targetUser.lastName}
                   </span>{" "}
-                  {targetUser.isActive ? "deaktivieren" : "wieder aktivieren"}?
+                  {targetUser.isActive ? "sperren" : "wieder entsperren"}?
                   {targetUser.isActive &&
                     " Der Nutzer kann sich danach nicht mehr anmelden."}
                 </p>
@@ -358,10 +656,23 @@ export default function AdminPage() {
               </button>
               <button
                 onClick={executeAction}
-                className="flex-1 px-4 py-2.5 bg-[var(--color-primary-600)] hover:bg-[var(--color-primary-700)] text-white rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2"
+                className={`flex-1 px-4 py-2.5 rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2 ${
+                  confirmAction.action === "remove"
+                    ? "bg-red-600 hover:bg-red-700 text-white"
+                    : "bg-[var(--color-primary-600)] hover:bg-[var(--color-primary-700)] text-white"
+                }`}
               >
-                <ShieldCheck className="h-4 w-4" />
-                Bestätigen
+                {confirmAction.action === "remove" ? (
+                  <>
+                    <Trash2 className="h-4 w-4" />
+                    Entfernen
+                  </>
+                ) : (
+                  <>
+                    <ShieldCheck className="h-4 w-4" />
+                    Bestätigen
+                  </>
+                )}
               </button>
             </div>
           </div>

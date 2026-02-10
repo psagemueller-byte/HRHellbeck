@@ -17,6 +17,8 @@ interface AuthContextType {
   updateUser: (data: Partial<User>) => void;
   updateUserRole: (userId: string, role: UserRole) => void;
   toggleUserActive: (userId: string) => void;
+  addUser: (data: Omit<User, "id" | "isActive">) => { success: boolean; error?: string };
+  removeUser: (userId: string) => void;
   hasRole: (requiredRole: UserRole | UserRole[]) => boolean;
 }
 
@@ -97,6 +99,32 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     );
   }, []);
 
+  const addUser = useCallback((data: Omit<User, "id" | "isActive">): { success: boolean; error?: string } => {
+    const emailExists = allUsers.some(
+      (u) => u.email.toLowerCase() === data.email.toLowerCase()
+    );
+    if (emailExists) {
+      return { success: false, error: "Ein Nutzer mit dieser E-Mail existiert bereits." };
+    }
+    if (!isValidEmail(data.email)) {
+      return { success: false, error: "Bitte eine gültige E-Mail-Adresse eingeben." };
+    }
+    if (!USER_ROLES.includes(data.role)) {
+      return { success: false, error: "Ungültige Rolle." };
+    }
+    const newUser: User = {
+      ...data,
+      id: `usr-${Date.now()}`,
+      isActive: true,
+    };
+    setAllUsers((users) => [...users, newUser]);
+    return { success: true };
+  }, [allUsers]);
+
+  const removeUser = useCallback((userId: string) => {
+    setAllUsers((users) => users.filter((u) => u.id !== userId));
+  }, []);
+
   const hasRole = useCallback(
     (requiredRole: UserRole | UserRole[]) => {
       if (!user) return false;
@@ -121,6 +149,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         updateUser,
         updateUserRole,
         toggleUserActive,
+        addUser,
+        removeUser,
         hasRole,
       }}
     >
