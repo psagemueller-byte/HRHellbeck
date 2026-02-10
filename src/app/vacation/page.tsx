@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { mockVacationBalance, mockVacationRequests } from "@/lib/mock-data";
 import { VacationRequest } from "@/types";
+import { sanitizeAndLimit, isValidDate, isValidVacationType } from "@/lib/sanitize";
 import {
   Palmtree,
   CalendarCheck,
@@ -87,12 +88,33 @@ export default function VacationPage() {
       return;
     }
 
+    if (!isValidDate(formData.startDate) || !isValidDate(formData.endDate)) {
+      setFormError("Bitte gültige Datumsangaben verwenden.");
+      return;
+    }
+
+    if (!isValidVacationType(formData.type)) {
+      setFormError("Ungültiger Urlaubstyp.");
+      return;
+    }
+
     if (new Date(formData.startDate) > new Date(formData.endDate)) {
       setFormError("Das Startdatum muss vor dem Enddatum liegen.");
       return;
     }
 
+    const today = new Date().toISOString().split("T")[0];
+    if (formData.startDate < today) {
+      setFormError("Das Startdatum darf nicht in der Vergangenheit liegen.");
+      return;
+    }
+
     const days = calculateBusinessDays(formData.startDate, formData.endDate);
+
+    if (days <= 0) {
+      setFormError("Der gewählte Zeitraum enthält keine Arbeitstage.");
+      return;
+    }
 
     if (days > balance.remaining) {
       setFormError(
@@ -100,6 +122,10 @@ export default function VacationPage() {
       );
       return;
     }
+
+    const sanitizedReason = formData.reason
+      ? sanitizeAndLimit(formData.reason, 500)
+      : undefined;
 
     const newRequest: VacationRequest = {
       id: `vac-${Date.now()}`,
@@ -109,7 +135,7 @@ export default function VacationPage() {
       days,
       type: formData.type,
       status: "ausstehend",
-      reason: formData.reason || undefined,
+      reason: sanitizedReason,
       createdAt: new Date().toISOString().split("T")[0],
     };
 
@@ -336,6 +362,7 @@ export default function VacationPage() {
                   }
                   placeholder="z.B. Sommerurlaub, Familienfeier..."
                   rows={3}
+                  maxLength={500}
                   className="w-full px-3 py-2.5 border border-[var(--color-border)] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary-500)] resize-none"
                 />
               </div>

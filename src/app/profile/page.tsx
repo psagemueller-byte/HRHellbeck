@@ -13,6 +13,7 @@ import {
   Pencil,
   X,
 } from "lucide-react";
+import { sanitizeAndLimit, isValidPhone, isValidZipCode } from "@/lib/sanitize";
 
 export default function ProfilePage() {
   const { user, updateUser } = useAuth();
@@ -28,8 +29,30 @@ export default function ProfilePage() {
 
   if (!user) return null;
 
+  const [saveError, setSaveError] = useState("");
+
   const handleSave = () => {
-    updateUser(formData);
+    setSaveError("");
+
+    if (formData.phone && !isValidPhone(formData.phone)) {
+      setSaveError("Bitte eine gültige Telefonnummer eingeben.");
+      return;
+    }
+    if (formData.zipCode && !isValidZipCode(formData.zipCode)) {
+      setSaveError("Bitte eine gültige PLZ eingeben.");
+      return;
+    }
+
+    const sanitized = {
+      phone: sanitizeAndLimit(formData.phone, 30),
+      street: sanitizeAndLimit(formData.street, 200),
+      city: sanitizeAndLimit(formData.city, 100),
+      zipCode: sanitizeAndLimit(formData.zipCode, 10),
+      country: sanitizeAndLimit(formData.country, 100),
+    };
+
+    updateUser(sanitized);
+    setFormData(sanitized);
     setEditing(false);
     setSaved(true);
     setTimeout(() => setSaved(false), 3000);
@@ -91,6 +114,12 @@ export default function ProfilePage() {
           </div>
         )}
       </div>
+
+      {saveError && (
+        <div className="mb-6 bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-3 rounded-lg">
+          {saveError}
+        </div>
+      )}
 
       {saved && (
         <div className="mb-6 bg-green-50 border border-green-200 text-green-700 text-sm px-4 py-3 rounded-lg">
@@ -182,6 +211,7 @@ export default function ProfilePage() {
                   onChange={(e) =>
                     setFormData({ ...formData, phone: e.target.value })
                   }
+                  maxLength={30}
                   className="w-full mt-1 px-3 py-2 border border-[var(--color-border)] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary-500)]"
                 />
               ) : (
@@ -212,6 +242,7 @@ export default function ProfilePage() {
                   onChange={(e) =>
                     setFormData({ ...formData, street: e.target.value })
                   }
+                  maxLength={200}
                   className="w-full mt-1 px-3 py-2 border border-[var(--color-border)] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary-500)]"
                 />
               ) : (
@@ -232,6 +263,7 @@ export default function ProfilePage() {
                     onChange={(e) =>
                       setFormData({ ...formData, zipCode: e.target.value })
                     }
+                    maxLength={10}
                     className="w-full mt-1 px-3 py-2 border border-[var(--color-border)] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary-500)]"
                   />
                 ) : (
@@ -251,6 +283,7 @@ export default function ProfilePage() {
                     onChange={(e) =>
                       setFormData({ ...formData, city: e.target.value })
                     }
+                    maxLength={100}
                     className="w-full mt-1 px-3 py-2 border border-[var(--color-border)] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary-500)]"
                   />
                 ) : (
@@ -271,6 +304,7 @@ export default function ProfilePage() {
                   onChange={(e) =>
                     setFormData({ ...formData, country: e.target.value })
                   }
+                  maxLength={100}
                   className="w-full mt-1 px-3 py-2 border border-[var(--color-border)] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary-500)]"
                 />
               ) : (

@@ -14,6 +14,7 @@ import {
   mockVacationBalance,
   mockVacationRequests,
 } from "@/lib/mock-data";
+import { encodePathParam } from "@/lib/sanitize";
 
 // Configuration for HR tool connection
 const HR_API_CONFIG = {
@@ -22,12 +23,20 @@ const HR_API_CONFIG = {
   enabled: process.env.NEXT_PUBLIC_HR_INTEGRATION_ENABLED === "true",
 };
 
+async function safeFetch<T>(url: string, options?: RequestInit): Promise<T> {
+  const res = await fetch(url, options);
+  if (!res.ok) {
+    throw new Error(`API error: ${res.status} ${res.statusText}`);
+  }
+  return res.json();
+}
+
 export async function fetchUserProfile(userId: string): Promise<User> {
   if (HR_API_CONFIG.enabled) {
-    const res = await fetch(`${HR_API_CONFIG.baseUrl}/employees/${userId}`, {
+    const safeId = encodePathParam(userId);
+    return safeFetch<User>(`${HR_API_CONFIG.baseUrl}/employees/${safeId}`, {
       headers: { Authorization: `Bearer ${HR_API_CONFIG.apiKey}` },
     });
-    return res.json();
   }
   return { ...mockUser, id: userId };
 }
@@ -37,7 +46,8 @@ export async function updateUserProfile(
   data: Partial<User>
 ): Promise<User> {
   if (HR_API_CONFIG.enabled) {
-    const res = await fetch(`${HR_API_CONFIG.baseUrl}/employees/${userId}`, {
+    const safeId = encodePathParam(userId);
+    return safeFetch<User>(`${HR_API_CONFIG.baseUrl}/employees/${safeId}`, {
       method: "PATCH",
       headers: {
         Authorization: `Bearer ${HR_API_CONFIG.apiKey}`,
@@ -45,7 +55,6 @@ export async function updateUserProfile(
       },
       body: JSON.stringify(data),
     });
-    return res.json();
   }
   return { ...mockUser, ...data };
 }
@@ -54,11 +63,11 @@ export async function fetchVacationBalance(
   userId: string
 ): Promise<VacationBalance> {
   if (HR_API_CONFIG.enabled) {
-    const res = await fetch(
-      `${HR_API_CONFIG.baseUrl}/employees/${userId}/vacation-balance`,
+    const safeId = encodePathParam(userId);
+    return safeFetch<VacationBalance>(
+      `${HR_API_CONFIG.baseUrl}/employees/${safeId}/vacation-balance`,
       { headers: { Authorization: `Bearer ${HR_API_CONFIG.apiKey}` } }
     );
-    return res.json();
   }
   void userId;
   return mockVacationBalance;
@@ -68,11 +77,11 @@ export async function fetchVacationRequests(
   userId: string
 ): Promise<VacationRequest[]> {
   if (HR_API_CONFIG.enabled) {
-    const res = await fetch(
-      `${HR_API_CONFIG.baseUrl}/employees/${userId}/vacation-requests`,
+    const safeId = encodePathParam(userId);
+    return safeFetch<VacationRequest[]>(
+      `${HR_API_CONFIG.baseUrl}/employees/${safeId}/vacation-requests`,
       { headers: { Authorization: `Bearer ${HR_API_CONFIG.apiKey}` } }
     );
-    return res.json();
   }
   void userId;
   return mockVacationRequests;
@@ -82,15 +91,17 @@ export async function createVacationRequest(
   request: Omit<VacationRequest, "id" | "createdAt" | "status">
 ): Promise<VacationRequest> {
   if (HR_API_CONFIG.enabled) {
-    const res = await fetch(`${HR_API_CONFIG.baseUrl}/vacation-requests`, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${HR_API_CONFIG.apiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(request),
-    });
-    return res.json();
+    return safeFetch<VacationRequest>(
+      `${HR_API_CONFIG.baseUrl}/vacation-requests`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${HR_API_CONFIG.apiKey}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(request),
+      }
+    );
   }
   return {
     ...request,
@@ -104,8 +115,9 @@ export async function cancelVacationRequest(
   requestId: string
 ): Promise<boolean> {
   if (HR_API_CONFIG.enabled) {
+    const safeId = encodePathParam(requestId);
     const res = await fetch(
-      `${HR_API_CONFIG.baseUrl}/vacation-requests/${requestId}`,
+      `${HR_API_CONFIG.baseUrl}/vacation-requests/${safeId}`,
       {
         method: "DELETE",
         headers: { Authorization: `Bearer ${HR_API_CONFIG.apiKey}` },

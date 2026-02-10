@@ -25,11 +25,11 @@ export default function LoginPage() {
       return;
     }
 
-    const success = await login(email, password);
-    if (success) {
+    const result = await login(email, password);
+    if (result.success) {
       router.push("/dashboard");
     } else {
-      setError("Ungültige Anmeldedaten. Bitte versuche es erneut.");
+      setError(result.error || "Ungültige Anmeldedaten.");
     }
     setLoading(false);
   };
@@ -95,6 +95,8 @@ export default function LoginPage() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="name@hellbeck.de"
+                maxLength={254}
+                autoComplete="email"
                 className="w-full px-4 py-2.5 border border-[var(--color-border)] rounded-lg bg-white text-[var(--color-text-primary)] placeholder:text-[var(--color-text-muted)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary-500)] focus:border-transparent transition"
               />
             </div>
@@ -113,6 +115,8 @@ export default function LoginPage() {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="Passwort eingeben"
+                  maxLength={128}
+                  autoComplete="current-password"
                   className="w-full px-4 py-2.5 border border-[var(--color-border)] rounded-lg bg-white text-[var(--color-text-primary)] placeholder:text-[var(--color-text-muted)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary-500)] focus:border-transparent transition pr-12"
                 />
                 <button
