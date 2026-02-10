@@ -1,0 +1,117 @@
+import { User, VacationRequest, VacationBalance, NewsArticle } from "@/types";
+
+export const mockUser: User = {
+  id: "usr-001",
+  email: "max.mustermann@hellbeck.de",
+  firstName: "Max",
+  lastName: "Mustermann",
+  position: "Senior Software Engineer",
+  department: "Entwicklung",
+  phone: "+49 170 1234567",
+  street: "Musterstraße 42",
+  city: "München",
+  zipCode: "80331",
+  country: "Deutschland",
+  birthDate: "1990-05-15",
+  startDate: "2021-03-01",
+};
+
+export const mockVacationBalance: VacationBalance = {
+  total: 30,
+  used: 12,
+  planned: 5,
+  remaining: 13,
+};
+
+export const mockVacationRequests: VacationRequest[] = [
+  {
+    id: "vac-001",
+    userId: "usr-001",
+    startDate: "2026-03-15",
+    endDate: "2026-03-22",
+    days: 5,
+    type: "urlaub",
+    status: "genehmigt",
+    createdAt: "2026-01-10",
+  },
+  {
+    id: "vac-002",
+    userId: "usr-001",
+    startDate: "2026-06-01",
+    endDate: "2026-06-14",
+    days: 10,
+    type: "urlaub",
+    status: "ausstehend",
+    reason: "Sommerurlaub",
+    createdAt: "2026-02-01",
+  },
+  {
+    id: "vac-003",
+    userId: "usr-001",
+    startDate: "2026-01-05",
+    endDate: "2026-01-06",
+    days: 2,
+    type: "sonderurlaub",
+    status: "genehmigt",
+    reason: "Umzug",
+    createdAt: "2025-12-20",
+  },
+];
+
+export const mockNews: NewsArticle[] = [
+  {
+    id: "news-001",
+    title: "Neue Büroräume im 3. OG eröffnet",
+    excerpt:
+      "Ab sofort stehen im dritten Obergeschoss moderne Arbeitsplätze und neue Meetingräume zur Verfügung.",
+    content:
+      "Wir freuen uns, die Eröffnung unserer neuen Büroräume im dritten Obergeschoss bekanntzugeben. Die Räume wurden komplett modernisiert und bieten flexible Arbeitsplätze, drei neue Meetingräume mit modernster Technik sowie eine gemütliche Lounge-Ecke für informelle Gespräche.",
+    author: "Geschäftsführung",
+    category: "unternehmen",
+    publishedAt: "2026-02-08",
+  },
+  {
+    id: "news-002",
+    title: "Teambuilding-Event am 28. Februar",
+    excerpt:
+      "Gemeinsames Teambuilding-Event mit spannenden Aktivitäten — meldet euch jetzt an!",
+    content:
+      "Am 28. Februar findet unser großes Teambuilding-Event statt. Auf dem Programm stehen Escape Rooms, Kochkurse und ein gemeinsames Abendessen. Die Teilnahme ist freiwillig und kostenlos. Bitte meldet euch bis zum 20. Februar über das HR-Portal an.",
+    author: "HR-Team",
+    category: "event",
+    publishedAt: "2026-02-05",
+  },
+  {
+    id: "news-003",
+    title: "Willkommen im Team: 5 neue Kolleg:innen",
+    excerpt:
+      "Diesen Monat begrüßen wir fünf neue Teammitglieder in verschiedenen Abteilungen.",
+    content:
+      "Wir heißen herzlich willkommen: Anna Schmidt (Marketing), Ben Wagner (Entwicklung), Clara Fischer (Vertrieb), David Bauer (Design) und Eva Klein (HR). Wir freuen uns auf die Zusammenarbeit!",
+    author: "HR-Team",
+    category: "team",
+    publishedAt: "2026-02-03",
+  },
+  {
+    id: "news-004",
+    title: "Neue Regelung: Hybrid-Arbeit ab März",
+    excerpt:
+      "Ab März 2026 gilt die neue Hybrid-Arbeitsregelung mit 3 Tagen Office und 2 Tagen Remote.",
+    content:
+      "Nach erfolgreicher Evaluierung unseres Pilotprojekts führen wir ab März die Hybrid-Arbeitsregelung für alle Abteilungen ein. Die Regelung sieht 3 Office-Tage (Dienstag bis Donnerstag) und 2 Remote-Tage (Montag und Freitag) vor.",
+    author: "Geschäftsführung",
+    category: "hr",
+    publishedAt: "2026-01-28",
+  },
+  {
+    id: "news-005",
+    title: "Jahresrückblick 2025 — Rekordumsatz erreicht",
+    excerpt:
+      "2025 war ein erfolgreiches Jahr mit einem Umsatzwachstum von 23% gegenüber dem Vorjahr.",
+    content:
+      "Wir blicken auf ein herausragendes Jahr 2025 zurück. Dank des Einsatzes aller Mitarbeitenden konnten wir unseren Umsatz um 23% steigern und zahlreiche neue Kunden gewinnen. Ein besonderer Dank gilt allen Teams für ihren außergewöhnlichen Einsatz!",
+    author: "Geschäftsführung",
+    category: "unternehmen",
+    publishedAt: "2026-01-15",
+  },
+];
