@@ -1,4 +1,11 @@
-import { User, VacationRequest, VacationBalance, NewsArticle } from "@/types";
+import { User, VacationRequest, VacationBalance, NewsArticle, Department, ChatMessage } from "@/types";
+
+export const mockDepartments: Department[] = [
+  { id: "dept-hr", name: "HR", headId: "usr-001", color: "bg-purple-100 text-purple-700 border-purple-200" },
+  { id: "dept-marketing", name: "Marketing", headId: "usr-002", color: "bg-pink-100 text-pink-700 border-pink-200" },
+  { id: "dept-dev", name: "Entwicklung", headId: "usr-003", color: "bg-blue-100 text-blue-700 border-blue-200" },
+  { id: "dept-sales", name: "Vertrieb", headId: "usr-004", color: "bg-green-100 text-green-700 border-green-200" },
+];
 
 export const mockUsers: User[] = [
   {
@@ -23,7 +30,7 @@ export const mockUsers: User[] = [
     email: "anna.schmidt@hellbeck.de",
     firstName: "Anna",
     lastName: "Schmidt",
-    position: "Content Managerin",
+    position: "Marketing-Leiterin",
     department: "Marketing",
     role: "autor",
     phone: "+49 170 2345678",
@@ -33,6 +40,7 @@ export const mockUsers: User[] = [
     country: "Deutschland",
     birthDate: "1992-07-12",
     startDate: "2022-04-01",
+    managerId: "usr-001",
     isActive: true,
   },
   {
@@ -40,7 +48,7 @@ export const mockUsers: User[] = [
     email: "max.mustermann@hellbeck.de",
     firstName: "Max",
     lastName: "Mustermann",
-    position: "Senior Software Engineer",
+    position: "Teamleiter Entwicklung",
     department: "Entwicklung",
     role: "benutzer",
     phone: "+49 170 3456789",
@@ -50,6 +58,7 @@ export const mockUsers: User[] = [
     country: "Deutschland",
     birthDate: "1990-05-15",
     startDate: "2021-03-01",
+    managerId: "usr-001",
     isActive: true,
   },
   {
@@ -57,7 +66,7 @@ export const mockUsers: User[] = [
     email: "clara.fischer@hellbeck.de",
     firstName: "Clara",
     lastName: "Fischer",
-    position: "Sales Managerin",
+    position: "Vertriebsleiterin",
     department: "Vertrieb",
     role: "benutzer",
     phone: "+49 170 4567890",
@@ -67,6 +76,7 @@ export const mockUsers: User[] = [
     country: "Deutschland",
     birthDate: "1994-11-03",
     startDate: "2023-06-15",
+    managerId: "usr-001",
     isActive: true,
   },
   {
@@ -84,6 +94,7 @@ export const mockUsers: User[] = [
     country: "Deutschland",
     birthDate: "1998-02-28",
     startDate: "2026-02-01",
+    managerId: "usr-003",
     isActive: true,
   },
   {
@@ -101,6 +112,7 @@ export const mockUsers: User[] = [
     country: "Deutschland",
     birthDate: "1991-09-18",
     startDate: "2020-08-01",
+    managerId: "usr-001",
     isActive: true,
   },
 ];
@@ -125,10 +137,12 @@ export const mockVacationRequests: VacationRequest[] = [
     type: "urlaub",
     status: "genehmigt",
     createdAt: "2026-01-10",
+    approvedBy: "usr-001",
+    approvedAt: "2026-01-11",
   },
   {
     id: "vac-002",
-    userId: "usr-001",
+    userId: "usr-005",
     startDate: "2026-06-01",
     endDate: "2026-06-14",
     days: 10,
@@ -139,7 +153,7 @@ export const mockVacationRequests: VacationRequest[] = [
   },
   {
     id: "vac-003",
-    userId: "usr-001",
+    userId: "usr-006",
     startDate: "2026-01-05",
     endDate: "2026-01-06",
     days: 2,
@@ -147,6 +161,29 @@ export const mockVacationRequests: VacationRequest[] = [
     status: "genehmigt",
     reason: "Umzug",
     createdAt: "2025-12-20",
+    approvedBy: "usr-001",
+    approvedAt: "2025-12-21",
+  },
+  {
+    id: "vac-004",
+    userId: "usr-003",
+    startDate: "2026-04-10",
+    endDate: "2026-04-18",
+    days: 7,
+    type: "urlaub",
+    status: "ausstehend",
+    reason: "Osterurlaub",
+    createdAt: "2026-02-10",
+  },
+  {
+    id: "vac-005",
+    userId: "usr-002",
+    startDate: "2026-05-01",
+    endDate: "2026-05-05",
+    days: 3,
+    type: "urlaub",
+    status: "ausstehend",
+    createdAt: "2026-02-12",
   },
 ];
 
@@ -161,6 +198,7 @@ export const mockNews: NewsArticle[] = [
     author: "Geschäftsführung",
     category: "unternehmen",
     publishedAt: "2026-02-08",
+    likes: ["usr-002", "usr-003", "usr-005"],
   },
   {
     id: "news-002",
@@ -172,6 +210,7 @@ export const mockNews: NewsArticle[] = [
     author: "HR-Team",
     category: "event",
     publishedAt: "2026-02-05",
+    likes: ["usr-001", "usr-004", "usr-006", "usr-002"],
   },
   {
     id: "news-003",
@@ -183,6 +222,7 @@ export const mockNews: NewsArticle[] = [
     author: "HR-Team",
     category: "team",
     publishedAt: "2026-02-03",
+    likes: ["usr-005"],
   },
   {
     id: "news-004",
@@ -194,6 +234,7 @@ export const mockNews: NewsArticle[] = [
     author: "Geschäftsführung",
     category: "hr",
     publishedAt: "2026-01-28",
+    likes: ["usr-001", "usr-002", "usr-003", "usr-004", "usr-005", "usr-006"],
   },
   {
     id: "news-005",
@@ -205,5 +246,57 @@ export const mockNews: NewsArticle[] = [
     author: "Geschäftsführung",
     category: "unternehmen",
     publishedAt: "2026-01-15",
+    likes: ["usr-001", "usr-003"],
+  },
+];
+
+export const mockChatMessages: ChatMessage[] = [
+  {
+    id: "msg-001",
+    senderId: "usr-003",
+    receiverId: "usr-005",
+    content: "Hey Ben, hast du das Deployment für heute fertig?",
+    timestamp: "2026-02-13T09:15:00",
+    read: true,
+  },
+  {
+    id: "msg-002",
+    senderId: "usr-005",
+    receiverId: "usr-003",
+    content: "Hi Max, bin gerade dran. Sollte in einer Stunde fertig sein.",
+    timestamp: "2026-02-13T09:18:00",
+    read: true,
+  },
+  {
+    id: "msg-003",
+    senderId: "usr-003",
+    receiverId: "usr-005",
+    content: "Super, danke dir! Sag Bescheid, wenn du Hilfe brauchst.",
+    timestamp: "2026-02-13T09:20:00",
+    read: false,
+  },
+  {
+    id: "msg-004",
+    senderId: "usr-001",
+    receiverId: "usr-006",
+    content: "Eva, kannst du den neuen Mitarbeiter onboarden?",
+    timestamp: "2026-02-13T10:00:00",
+    read: true,
+  },
+  {
+    id: "msg-005",
+    senderId: "usr-006",
+    receiverId: "usr-001",
+    content: "Klar, mache ich morgen. Ist alles vorbereitet.",
+    timestamp: "2026-02-13T10:05:00",
+    read: false,
+  },
+  {
+    id: "msg-006",
+    senderId: "usr-002",
+    receiverId: "usr-001",
+    content: "Patrick, die neue Kampagne ist online. Kannst du die News dazu freigeben?",
+    timestamp: "2026-02-12T16:30:00",
+    read: true,
   },
 ];

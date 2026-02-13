@@ -12,6 +12,8 @@ import {
   Crown,
   PenTool,
   User as UserIcon,
+  MessageSquare,
+  Network,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { UserRole } from "@/types";
@@ -26,12 +28,16 @@ const navItems = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard, minRole: "benutzer" as UserRole },
   { href: "/profile", label: "Meine Daten", icon: User, minRole: "benutzer" as UserRole },
   { href: "/vacation", label: "Urlaub", icon: Palmtree, minRole: "benutzer" as UserRole },
+  { href: "/chat", label: "Nachrichten", icon: MessageSquare, minRole: "benutzer" as UserRole },
+  { href: "/organigramm", label: "Organigramm", icon: Network, minRole: "admin" as UserRole },
   { href: "/admin", label: "Administration", icon: Shield, minRole: "admin" as UserRole },
 ];
 
 export default function Sidebar() {
   const pathname = usePathname();
-  const { user, logout, hasRole } = useAuth();
+  const { user, logout, hasRole, getConversations } = useAuth();
+  const conversations = getConversations();
+  const totalUnread = conversations.reduce((sum, c) => sum + c.unreadCount, 0);
 
   const roleInfo = user ? roleLabels[user.role] : null;
   const RoleBadgeIcon = roleInfo?.icon;
@@ -66,6 +72,11 @@ export default function Sidebar() {
                   >
                     <Icon className="h-5 w-5" />
                     {item.label}
+                    {item.href === "/chat" && totalUnread > 0 && (
+                      <span className="ml-auto bg-[var(--color-primary-600)] text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full min-w-[18px] text-center">
+                        {totalUnread}
+                      </span>
+                    )}
                   </Link>
                 </li>
               );

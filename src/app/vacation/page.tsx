@@ -1,8 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { mockVacationBalance, mockVacationRequests } from "@/lib/mock-data";
-import { VacationRequest } from "@/types";
+import { useAuth } from "@/lib/auth-context";
+import { mockVacationBalance } from "@/lib/mock-data";
 import { sanitizeAndLimit, isValidDate, isValidVacationType } from "@/lib/sanitize";
 import {
   Palmtree,
@@ -15,6 +15,8 @@ import {
   CheckCircle2,
   XCircle,
   Info,
+  Check,
+  Ban,
 } from "lucide-react";
 
 const statusConfig: Record<
@@ -68,9 +70,18 @@ function calculateBusinessDays(start: string, end: string): number {
 }
 
 export default function VacationPage() {
+  const {
+    user,
+    allUsers,
+    vacationRequests,
+    addVacationRequest,
+    approveVacation,
+    rejectVacation,
+    canApproveVacation,
+  } = useAuth();
   const balance = mockVacationBalance;
-  const [requests, setRequests] = useState<VacationRequest[]>(mockVacationRequests);
   const [showForm, setShowForm] = useState(false);
+  const [activeTab, setActiveTab] = useState<"mine" | "approvals">("mine");
   const [formData, setFormData] = useState({
     startDate: "",
     endDate: "",
@@ -78,6 +89,12 @@ export default function VacationPage() {
     reason: "",
   });
   const [formError, setFormError] = useState("");
+
+  const myRequests = vacationRequests.filter((r) => r.userId === user?.id);
+  const pendingApprovals = vacationRequests.filter(
+    (r) => r.status === "ausstehend" && canApproveVacation(r) && r.userId !== user?.id
+  );
+  const hasPendingApprovals = pendingApprovals.length > 0;
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -127,21 +144,22 @@ export default function VacationPage() {
       ? sanitizeAndLimit(formData.reason, 500)
       : undefined;
 
-    const newRequest: VacationRequest = {
-      id: `vac-${Date.now()}`,
-      userId: "usr-001",
+    addVacationRequest({
+      userId: user?.id || "",
       startDate: formData.startDate,
       endDate: formData.endDate,
       days,
       type: formData.type,
-      status: "ausstehend",
       reason: sanitizedReason,
-      createdAt: new Date().toISOString().split("T")[0],
-    };
+    });
 
-    setRequests([newRequest, ...requests]);
     setShowForm(false);
     setFormData({ startDate: "", endDate: "", type: "urlaub", reason: "" });
+  };
+
+  const getUserName = (userId: string) => {
+    const u = allUsers.find((u) => u.id === userId);
+    return u ? `${u.firstName} ${u.lastName}` : "Unbekannt";
   };
 
   return (
@@ -387,58 +405,170 @@ export default function VacationPage() {
         </div>
       )}
 
-      {/* Requests table */}
-      <div className="bg-white rounded-xl border border-[var(--color-border)]">
-        <div className="px-5 py-4 border-b border-[var(--color-border)]">
-          <h2 className="text-base font-semibold text-[var(--color-text-primary)]">
-            Meine Anträge
-          </h2>
-        </div>
-        <div className="divide-y divide-[var(--color-border)]">
-          {requests.length === 0 ? (
-            <div className="px-5 py-12 text-center text-[var(--color-text-muted)]">
-              Keine Urlaubsanträge vorhanden.
-            </div>
-          ) : (
-            requests.map((req) => {
-              const status = statusConfig[req.status];
-              const StatusIcon = status.icon;
-              return (
-                <div
-                  key={req.id}
-                  className="px-5 py-4 flex items-center gap-4"
-                >
-                  <div
-                    className={`h-10 w-10 rounded-lg ${status.bg} flex items-center justify-center flex-shrink-0`}
-                  >
-                    <StatusIcon className={`h-5 w-5 ${status.color}`} />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm font-medium text-[var(--color-text-primary)]">
-                        {formatDate(req.startDate)} — {formatDate(req.endDate)}
-                      </span>
-                      <span
-                        className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${status.bg} ${status.color}`}
-                      >
-                        {status.label}
-                      </span>
-                    </div>
-                    <p className="text-xs text-[var(--color-text-muted)] mt-0.5">
-                      {typeLabels[req.type]} &middot; {req.days} Tag
-                      {req.days !== 1 ? "e" : ""}
-                      {req.reason && ` — ${req.reason}`}
-                    </p>
-                  </div>
-                  <span className="text-xs text-[var(--color-text-muted)] flex-shrink-0">
-                    Beantragt am {formatDate(req.createdAt)}
-                  </span>
-                </div>
-              );
-            })
-          )}
-        </div>
+      {/* Tab navigation */}
+      <div className="flex gap-1 mb-6 bg-[var(--color-surface-tertiary)] p-1 rounded-lg w-fit">
+        <button
+          onClick={() => setActiveTab("mine")}
+          className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+            activeTab === "mine"
+              ? "bg-white text-[var(--color-text-primary)] shadow-sm"
+              : "text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)]"
+          }`}
+        >
+          Meine Anträge ({myRequests.length})
+        </button>
+        {hasPendingApprovals && (
+          <button
+            onClick={() => setActiveTab("approvals")}
+            className={`px-4 py-2 rounded-md text-sm font-medium transition-colors flex items-center gap-2 ${
+              activeTab === "approvals"
+                ? "bg-white text-[var(--color-text-primary)] shadow-sm"
+                : "text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)]"
+            }`}
+          >
+            Genehmigungen
+            <span className="bg-amber-500 text-white text-xs font-bold px-1.5 py-0.5 rounded-full min-w-[20px] text-center">
+              {pendingApprovals.length}
+            </span>
+          </button>
+        )}
       </div>
+
+      {/* My Requests */}
+      {activeTab === "mine" && (
+        <div className="bg-white rounded-xl border border-[var(--color-border)]">
+          <div className="px-5 py-4 border-b border-[var(--color-border)]">
+            <h2 className="text-base font-semibold text-[var(--color-text-primary)]">
+              Meine Anträge
+            </h2>
+          </div>
+          <div className="divide-y divide-[var(--color-border)]">
+            {myRequests.length === 0 ? (
+              <div className="px-5 py-12 text-center text-[var(--color-text-muted)]">
+                Keine Urlaubsanträge vorhanden.
+              </div>
+            ) : (
+              myRequests.map((req) => {
+                const status = statusConfig[req.status];
+                const StatusIcon = status.icon;
+                return (
+                  <div
+                    key={req.id}
+                    className="px-5 py-4 flex items-center gap-4"
+                  >
+                    <div
+                      className={`h-10 w-10 rounded-lg ${status.bg} flex items-center justify-center flex-shrink-0`}
+                    >
+                      <StatusIcon className={`h-5 w-5 ${status.color}`} />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-medium text-[var(--color-text-primary)]">
+                          {formatDate(req.startDate)} — {formatDate(req.endDate)}
+                        </span>
+                        <span
+                          className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${status.bg} ${status.color}`}
+                        >
+                          {status.label}
+                        </span>
+                      </div>
+                      <p className="text-xs text-[var(--color-text-muted)] mt-0.5">
+                        {typeLabels[req.type]} &middot; {req.days} Tag
+                        {req.days !== 1 ? "e" : ""}
+                        {req.reason && ` — ${req.reason}`}
+                      </p>
+                      {req.approvedBy && (
+                        <p className="text-xs text-[var(--color-text-muted)] mt-0.5">
+                          {req.status === "genehmigt" ? "Genehmigt" : "Abgelehnt"} von {getUserName(req.approvedBy)}
+                          {req.approvedAt && ` am ${formatDate(req.approvedAt)}`}
+                        </p>
+                      )}
+                    </div>
+                    <span className="text-xs text-[var(--color-text-muted)] flex-shrink-0">
+                      Beantragt am {formatDate(req.createdAt)}
+                    </span>
+                  </div>
+                );
+              })
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Approval Requests */}
+      {activeTab === "approvals" && (
+        <div className="bg-white rounded-xl border border-[var(--color-border)]">
+          <div className="px-5 py-4 border-b border-[var(--color-border)]">
+            <h2 className="text-base font-semibold text-[var(--color-text-primary)]">
+              Ausstehende Genehmigungen
+            </h2>
+            <p className="text-xs text-[var(--color-text-muted)] mt-1">
+              Urlaubsanträge deiner Teammitglieder, die auf deine Genehmigung warten
+            </p>
+          </div>
+          <div className="divide-y divide-[var(--color-border)]">
+            {pendingApprovals.length === 0 ? (
+              <div className="px-5 py-12 text-center text-[var(--color-text-muted)]">
+                Keine ausstehenden Genehmigungen.
+              </div>
+            ) : (
+              pendingApprovals.map((req) => {
+                const reqUser = allUsers.find((u) => u.id === req.userId);
+                return (
+                  <div
+                    key={req.id}
+                    className="px-5 py-4"
+                  >
+                    <div className="flex items-start gap-4">
+                      <div className="h-10 w-10 rounded-full bg-amber-100 flex items-center justify-center flex-shrink-0">
+                        <span className="text-sm font-bold text-amber-700">
+                          {reqUser?.firstName[0]}{reqUser?.lastName[0]}
+                        </span>
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="text-sm font-semibold text-[var(--color-text-primary)]">
+                            {reqUser?.firstName} {reqUser?.lastName}
+                          </span>
+                          <span className="text-xs text-[var(--color-text-muted)]">
+                            {reqUser?.department} &middot; {reqUser?.position}
+                          </span>
+                        </div>
+                        <p className="text-sm text-[var(--color-text-primary)]">
+                          {formatDate(req.startDate)} — {formatDate(req.endDate)}
+                        </p>
+                        <p className="text-xs text-[var(--color-text-muted)] mt-0.5">
+                          {typeLabels[req.type]} &middot; {req.days} Tag{req.days !== 1 ? "e" : ""}
+                          {req.reason && ` — ${req.reason}`}
+                        </p>
+                        <p className="text-xs text-[var(--color-text-muted)] mt-0.5">
+                          Beantragt am {formatDate(req.createdAt)}
+                        </p>
+                      </div>
+                      <div className="flex gap-2 flex-shrink-0">
+                        <button
+                          onClick={() => rejectVacation(req.id)}
+                          className="flex items-center gap-1.5 px-3 py-2 bg-red-50 text-red-700 hover:bg-red-100 rounded-lg text-xs font-medium transition-colors"
+                        >
+                          <Ban className="h-3.5 w-3.5" />
+                          Ablehnen
+                        </button>
+                        <button
+                          onClick={() => approveVacation(req.id)}
+                          className="flex items-center gap-1.5 px-3 py-2 bg-green-600 text-white hover:bg-green-700 rounded-lg text-xs font-medium transition-colors"
+                        >
+                          <Check className="h-3.5 w-3.5" />
+                          Genehmigen
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

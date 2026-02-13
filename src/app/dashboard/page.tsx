@@ -1,7 +1,7 @@
 "use client";
 
 import { useAuth } from "@/lib/auth-context";
-import { mockNews, mockVacationBalance } from "@/lib/mock-data";
+import { mockVacationBalance } from "@/lib/mock-data";
 import {
   Palmtree,
   CalendarCheck,
@@ -12,6 +12,7 @@ import {
   PartyPopper,
   Briefcase,
   ChevronRight,
+  ThumbsUp,
 } from "lucide-react";
 import Link from "next/link";
 
@@ -45,7 +46,7 @@ function formatDate(dateStr: string) {
 }
 
 export default function DashboardPage() {
-  const { user } = useAuth();
+  const { user, news, toggleNewsLike } = useAuth();
   const balance = mockVacationBalance;
 
   const greeting = () => {
@@ -158,17 +159,22 @@ export default function DashboardPage() {
             <ChevronRight className="h-5 w-5 text-[var(--color-text-muted)] group-hover:translate-x-1 transition-transform" />
           </div>
         </Link>
-        <div className="bg-white rounded-xl border border-[var(--color-border)] p-5">
-          <p className="text-sm font-medium text-[var(--color-text-secondary)]">
-            Dein nächster Urlaub
-          </p>
-          <p className="text-lg font-bold text-[var(--color-text-primary)] mt-1">
-            15. — 22. März 2026
-          </p>
-          <p className="text-sm text-[var(--color-text-muted)] mt-1">
-            5 Tage genehmigt
-          </p>
-        </div>
+        <Link
+          href="/chat"
+          className="bg-white rounded-xl border border-[var(--color-border)] p-5 hover:border-[var(--color-primary-300)] transition-colors group"
+        >
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-[var(--color-text-secondary)]">
+                Nachrichten
+              </p>
+              <p className="text-lg font-bold text-[var(--color-text-primary)] mt-1">
+                Chat öffnen
+              </p>
+            </div>
+            <ChevronRight className="h-5 w-5 text-[var(--color-text-muted)] group-hover:translate-x-1 transition-transform" />
+          </div>
+        </Link>
       </div>
 
       {/* News section */}
@@ -179,8 +185,9 @@ export default function DashboardPage() {
           </h2>
         </div>
         <div className="space-y-4">
-          {mockNews.map((article) => {
+          {news.map((article) => {
             const Icon = categoryIcons[article.category] || Newspaper;
+            const isLiked = user ? article.likes.includes(user.id) : false;
             return (
               <article
                 key={article.id}
@@ -207,9 +214,24 @@ export default function DashboardPage() {
                     <p className="text-sm text-[var(--color-text-secondary)] leading-relaxed">
                       {article.excerpt}
                     </p>
-                    <p className="text-xs text-[var(--color-text-muted)] mt-2">
-                      Von {article.author}
-                    </p>
+                    <div className="flex items-center justify-between mt-3">
+                      <p className="text-xs text-[var(--color-text-muted)]">
+                        Von {article.author}
+                      </p>
+                      <button
+                        onClick={() => toggleNewsLike(article.id)}
+                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-all ${
+                          isLiked
+                            ? "bg-blue-100 text-blue-700 hover:bg-blue-200"
+                            : "bg-[var(--color-surface-tertiary)] text-[var(--color-text-muted)] hover:bg-gray-200 hover:text-[var(--color-text-secondary)]"
+                        }`}
+                      >
+                        <ThumbsUp className={`h-3.5 w-3.5 ${isLiked ? "fill-blue-700" : ""}`} />
+                        {article.likes.length > 0 && (
+                          <span>{article.likes.length}</span>
+                        )}
+                      </button>
+                    </div>
                   </div>
                 </div>
               </article>

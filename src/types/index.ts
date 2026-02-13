@@ -21,6 +21,13 @@ export interface User {
   isActive: boolean;
 }
 
+export interface Department {
+  id: string;
+  name: string;
+  headId: string;
+  color: string;
+}
+
 export interface VacationRequest {
   id: string;
   userId: string;
@@ -31,6 +38,8 @@ export interface VacationRequest {
   status: "ausstehend" | "genehmigt" | "abgelehnt";
   reason?: string;
   createdAt: string;
+  approvedBy?: string;
+  approvedAt?: string;
 }
 
 export interface VacationBalance {
@@ -49,6 +58,16 @@ export interface NewsArticle {
   category: "unternehmen" | "team" | "event" | "hr";
   publishedAt: string;
   imageUrl?: string;
+  likes: string[];
+}
+
+export interface ChatMessage {
+  id: string;
+  senderId: string;
+  receiverId: string;
+  content: string;
+  timestamp: string;
+  read: boolean;
 }
 
 export interface HRToolConfig {

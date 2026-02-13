@@ -23,7 +23,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     if (isAuthenticated && pathname === "/login") {
       router.push("/dashboard");
     }
-    if (isAuthenticated && pathname === "/admin" && !hasRole("admin")) {
+    if (isAuthenticated && (pathname === "/admin" || pathname === "/organigramm") && !hasRole("admin")) {
       router.push("/dashboard");
     }
   }, [isAuthenticated, pathname, isPublicRoute, hasRole, router]);
