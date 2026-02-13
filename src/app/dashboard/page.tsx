@@ -183,9 +183,16 @@ export default function DashboardPage() {
           <h2 className="text-lg font-bold text-[var(--color-text-primary)]">
             Unternehmensnews
           </h2>
+          <Link
+            href="/news"
+            className="text-sm text-[var(--color-primary-600)] hover:text-[var(--color-primary-700)] font-medium flex items-center gap-1"
+          >
+            Alle News
+            <ChevronRight className="h-4 w-4" />
+          </Link>
         </div>
         <div className="space-y-4">
-          {news.map((article) => {
+          {news.slice(0, 3).map((article) => {
             const Icon = categoryIcons[article.category] || Newspaper;
             const isLiked = user ? article.likes.includes(user.id) : false;
             return (

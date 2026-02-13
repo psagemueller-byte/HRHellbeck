@@ -25,6 +25,8 @@ interface AuthContextType {
   removeUser: (userId: string) => void;
   hasRole: (requiredRole: UserRole | UserRole[]) => boolean;
   toggleNewsLike: (newsId: string) => void;
+  addNews: (data: Omit<NewsArticle, "id" | "publishedAt" | "likes">) => void;
+  deleteNews: (newsId: string) => void;
   addVacationRequest: (req: Omit<VacationRequest, "id" | "createdAt" | "status">) => void;
   approveVacation: (requestId: string) => void;
   rejectVacation: (requestId: string) => void;
@@ -171,6 +173,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     );
   }, [user]);
 
+  const addNews = useCallback((data: Omit<NewsArticle, "id" | "publishedAt" | "likes">) => {
+    const newArticle: NewsArticle = {
+      ...data,
+      id: `news-${Date.now()}`,
+      publishedAt: new Date().toISOString().split("T")[0],
+      likes: [],
+    };
+    setNews((prev) => [newArticle, ...prev]);
+  }, []);
+
+  const deleteNews = useCallback((newsId: string) => {
+    setNews((prev) => prev.filter((n) => n.id !== newsId));
+  }, []);
+
   // --- Vacation Management ---
   const addVacationRequest = useCallback((req: Omit<VacationRequest, "id" | "createdAt" | "status">) => {
     const newReq: VacationRequest = {
@@ -307,6 +323,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         removeUser,
         hasRole,
         toggleNewsLike,
+        addNews,
+        deleteNews,
         addVacationRequest,
         approveVacation,
         rejectVacation,

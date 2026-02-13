@@ -14,6 +14,7 @@ import {
   User as UserIcon,
   MessageSquare,
   Network,
+  Newspaper,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { UserRole } from "@/types";
@@ -26,6 +27,7 @@ const roleLabels: Record<UserRole, { label: string; icon: typeof Crown; color: s
 
 const navItems = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard, minRole: "benutzer" as UserRole },
+  { href: "/news", label: "News", icon: Newspaper, minRole: "benutzer" as UserRole },
   { href: "/profile", label: "Meine Daten", icon: User, minRole: "benutzer" as UserRole },
   { href: "/vacation", label: "Urlaub", icon: Palmtree, minRole: "benutzer" as UserRole },
   { href: "/chat", label: "Nachrichten", icon: MessageSquare, minRole: "benutzer" as UserRole },
