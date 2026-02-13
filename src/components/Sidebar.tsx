@@ -37,9 +37,10 @@ const navItems = [
 
 export default function Sidebar() {
   const pathname = usePathname();
-  const { user, logout, hasRole, getConversations } = useAuth();
+  const { user, logout, hasRole, getConversations, getPendingApprovalsCount } = useAuth();
   const conversations = getConversations();
   const totalUnread = conversations.reduce((sum, c) => sum + c.unreadCount, 0);
+  const pendingApprovals = getPendingApprovalsCount();
 
   const roleInfo = user ? roleLabels[user.role] : null;
   const RoleBadgeIcon = roleInfo?.icon;
@@ -77,6 +78,11 @@ export default function Sidebar() {
                     {item.href === "/chat" && totalUnread > 0 && (
                       <span className="ml-auto bg-[var(--color-primary-600)] text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full min-w-[18px] text-center">
                         {totalUnread}
+                      </span>
+                    )}
+                    {item.href === "/vacation" && pendingApprovals > 0 && (
+                      <span className="ml-auto bg-amber-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full min-w-[18px] text-center">
+                        {pendingApprovals}
                       </span>
                     )}
                   </Link>

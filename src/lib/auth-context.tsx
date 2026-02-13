@@ -24,6 +24,11 @@ interface AuthContextType {
   addUser: (data: Omit<User, "id" | "isActive">) => { success: boolean; error?: string };
   removeUser: (userId: string) => void;
   hasRole: (requiredRole: UserRole | UserRole[]) => boolean;
+  addDepartment: (name: string, color: string) => { success: boolean; error?: string };
+  updateDepartment: (deptId: string, data: { name?: string; headId?: string; color?: string }) => void;
+  deleteDepartment: (deptId: string) => void;
+  moveUserToDepartment: (userId: string, department: string, managerId?: string) => void;
+  getPendingApprovalsCount: () => number;
   toggleNewsLike: (newsId: string) => void;
   addNews: (data: Omit<NewsArticle, "id" | "publishedAt" | "likes">) => void;
   deleteNews: (newsId: string) => void;
@@ -48,7 +53,7 @@ const ROLE_HIERARCHY: Record<UserRole, number> = {
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [allUsers, setAllUsers] = useState<User[]>(mockUsers);
-  const [departments] = useState<Department[]>(mockDepartments);
+  const [departments, setDepartments] = useState<Department[]>(mockDepartments);
   const [news, setNews] = useState<NewsArticle[]>(mockNews);
   const [vacationRequests, setVacationRequests] = useState<VacationRequest[]>(mockVacationRequests);
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>(mockChatMessages);
@@ -155,6 +160,88 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     },
     [user]
   );
+
+  // --- Department Management ---
+  const addDepartment = useCallback((name: string, color: string): { success: boolean; error?: string } => {
+    const cleanName = sanitizeString(name).slice(0, 50);
+    if (!cleanName) return { success: false, error: "Bitte einen Abteilungsnamen eingeben." };
+    const exists = departments.some((d) => d.name.toLowerCase() === cleanName.toLowerCase());
+    if (exists) return { success: false, error: "Eine Abteilung mit diesem Namen existiert bereits." };
+    const newDept: Department = {
+      id: `dept-${Date.now()}`,
+      name: cleanName,
+      headId: "",
+      color: color || "bg-gray-100 text-gray-700 border-gray-200",
+    };
+    setDepartments((prev) => [...prev, newDept]);
+    return { success: true };
+  }, [departments]);
+
+  const updateDepartment = useCallback((deptId: string, data: { name?: string; headId?: string; color?: string }) => {
+    setDepartments((prev) =>
+      prev.map((d) => {
+        if (d.id !== deptId) return d;
+        const updated = { ...d };
+        if (data.name !== undefined) updated.name = sanitizeString(data.name).slice(0, 50);
+        if (data.headId !== undefined) {
+          // Update old head's managerId references
+          const oldHeadId = d.headId;
+          updated.headId = data.headId;
+          // Set the new head's managerId to empty (they are the top of the dept)
+          if (data.headId) {
+            setAllUsers((users) =>
+              users.map((u) => {
+                if (u.id === data.headId) return { ...u, managerId: undefined };
+                // Reassign members who reported to old head to new head
+                if (u.managerId === oldHeadId && u.department === d.name && u.id !== data.headId) {
+                  return { ...u, managerId: data.headId };
+                }
+                return u;
+              })
+            );
+          }
+        }
+        if (data.color !== undefined) updated.color = data.color;
+        return updated;
+      })
+    );
+  }, []);
+
+  const deleteDepartment = useCallback((deptId: string) => {
+    const dept = departments.find((d) => d.id === deptId);
+    if (!dept) return;
+    // Move all users in this department to "Ohne Abteilung"
+    setAllUsers((users) =>
+      users.map((u) =>
+        u.department === dept.name ? { ...u, department: "Ohne Abteilung", managerId: undefined } : u
+      )
+    );
+    setDepartments((prev) => prev.filter((d) => d.id !== deptId));
+  }, [departments]);
+
+  const moveUserToDepartment = useCallback((userId: string, department: string, managerId?: string) => {
+    setAllUsers((users) =>
+      users.map((u) => {
+        if (u.id !== userId) return u;
+        return { ...u, department, managerId: managerId || undefined };
+      })
+    );
+    // Update current user if it's the logged-in user
+    setUser((prev) => {
+      if (!prev || prev.id !== userId) return prev;
+      return { ...prev, department, managerId: managerId || undefined };
+    });
+  }, []);
+
+  const getPendingApprovalsCount = useCallback(() => {
+    if (!user) return 0;
+    return vacationRequests.filter(
+      (r) => r.status === "ausstehend" && r.userId !== user.id && (
+        user.role === "admin" ||
+        allUsers.find((u) => u.id === r.userId)?.managerId === user.id
+      )
+    ).length;
+  }, [user, vacationRequests, allUsers]);
 
   // --- News Likes ---
   const toggleNewsLike = useCallback((newsId: string) => {
@@ -322,6 +409,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         addUser,
         removeUser,
         hasRole,
+        addDepartment,
+        updateDepartment,
+        deleteDepartment,
+        moveUserToDepartment,
+        getPendingApprovalsCount,
         toggleNewsLike,
         addNews,
         deleteNews,

@@ -94,7 +94,11 @@ export default function VacationPage() {
   const pendingApprovals = vacationRequests.filter(
     (r) => r.status === "ausstehend" && canApproveVacation(r) && r.userId !== user?.id
   );
-  const hasPendingApprovals = pendingApprovals.length > 0;
+  // Show approvals tab if user is admin or has direct reports
+  const isManager = user?.role === "admin" || allUsers.some((u) => u.managerId === user?.id);
+  const allTeamRequests = vacationRequests.filter(
+    (r) => canApproveVacation(r) && r.userId !== user?.id
+  );
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -417,7 +421,7 @@ export default function VacationPage() {
         >
           Meine Anträge ({myRequests.length})
         </button>
-        {hasPendingApprovals && (
+        {isManager && (
           <button
             onClick={() => setActiveTab("approvals")}
             className={`px-4 py-2 rounded-md text-sm font-medium transition-colors flex items-center gap-2 ${
@@ -427,9 +431,11 @@ export default function VacationPage() {
             }`}
           >
             Genehmigungen
-            <span className="bg-amber-500 text-white text-xs font-bold px-1.5 py-0.5 rounded-full min-w-[20px] text-center">
-              {pendingApprovals.length}
-            </span>
+            {pendingApprovals.length > 0 && (
+              <span className="bg-amber-500 text-white text-xs font-bold px-1.5 py-0.5 rounded-full min-w-[20px] text-center">
+                {pendingApprovals.length}
+              </span>
+            )}
           </button>
         )}
       </div>
@@ -497,76 +503,115 @@ export default function VacationPage() {
 
       {/* Approval Requests */}
       {activeTab === "approvals" && (
-        <div className="bg-white rounded-xl border border-[var(--color-border)]">
-          <div className="px-5 py-4 border-b border-[var(--color-border)]">
-            <h2 className="text-base font-semibold text-[var(--color-text-primary)]">
-              Ausstehende Genehmigungen
-            </h2>
-            <p className="text-xs text-[var(--color-text-muted)] mt-1">
-              Urlaubsanträge deiner Teammitglieder, die auf deine Genehmigung warten
-            </p>
-          </div>
-          <div className="divide-y divide-[var(--color-border)]">
-            {pendingApprovals.length === 0 ? (
-              <div className="px-5 py-12 text-center text-[var(--color-text-muted)]">
-                Keine ausstehenden Genehmigungen.
-              </div>
-            ) : (
-              pendingApprovals.map((req) => {
-                const reqUser = allUsers.find((u) => u.id === req.userId);
-                return (
-                  <div
-                    key={req.id}
-                    className="px-5 py-4"
-                  >
-                    <div className="flex items-start gap-4">
-                      <div className="h-10 w-10 rounded-full bg-amber-100 flex items-center justify-center flex-shrink-0">
-                        <span className="text-sm font-bold text-amber-700">
-                          {reqUser?.firstName[0]}{reqUser?.lastName[0]}
-                        </span>
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-1">
-                          <span className="text-sm font-semibold text-[var(--color-text-primary)]">
-                            {reqUser?.firstName} {reqUser?.lastName}
-                          </span>
-                          <span className="text-xs text-[var(--color-text-muted)]">
-                            {reqUser?.department} &middot; {reqUser?.position}
+        <div className="space-y-6">
+          {/* Pending */}
+          <div className="bg-white rounded-xl border border-[var(--color-border)]">
+            <div className="px-5 py-4 border-b border-[var(--color-border)]">
+              <h2 className="text-base font-semibold text-[var(--color-text-primary)]">
+                Ausstehende Genehmigungen
+              </h2>
+              <p className="text-xs text-[var(--color-text-muted)] mt-1">
+                Urlaubsanträge deiner Teammitglieder, die auf deine Genehmigung warten
+              </p>
+            </div>
+            <div className="divide-y divide-[var(--color-border)]">
+              {pendingApprovals.length === 0 ? (
+                <div className="px-5 py-8 text-center text-[var(--color-text-muted)]">
+                  <CheckCircle2 className="h-8 w-8 mx-auto mb-2 opacity-40" />
+                  <p className="text-sm">Keine ausstehenden Genehmigungen.</p>
+                </div>
+              ) : (
+                pendingApprovals.map((req) => {
+                  const reqUser = allUsers.find((u) => u.id === req.userId);
+                  return (
+                    <div key={req.id} className="px-5 py-4">
+                      <div className="flex items-start gap-4">
+                        <div className="h-10 w-10 rounded-full bg-amber-100 flex items-center justify-center flex-shrink-0">
+                          <span className="text-sm font-bold text-amber-700">
+                            {reqUser?.firstName[0]}{reqUser?.lastName[0]}
                           </span>
                         </div>
-                        <p className="text-sm text-[var(--color-text-primary)]">
-                          {formatDate(req.startDate)} — {formatDate(req.endDate)}
-                        </p>
-                        <p className="text-xs text-[var(--color-text-muted)] mt-0.5">
-                          {typeLabels[req.type]} &middot; {req.days} Tag{req.days !== 1 ? "e" : ""}
-                          {req.reason && ` — ${req.reason}`}
-                        </p>
-                        <p className="text-xs text-[var(--color-text-muted)] mt-0.5">
-                          Beantragt am {formatDate(req.createdAt)}
-                        </p>
-                      </div>
-                      <div className="flex gap-2 flex-shrink-0">
-                        <button
-                          onClick={() => rejectVacation(req.id)}
-                          className="flex items-center gap-1.5 px-3 py-2 bg-red-50 text-red-700 hover:bg-red-100 rounded-lg text-xs font-medium transition-colors"
-                        >
-                          <Ban className="h-3.5 w-3.5" />
-                          Ablehnen
-                        </button>
-                        <button
-                          onClick={() => approveVacation(req.id)}
-                          className="flex items-center gap-1.5 px-3 py-2 bg-green-600 text-white hover:bg-green-700 rounded-lg text-xs font-medium transition-colors"
-                        >
-                          <Check className="h-3.5 w-3.5" />
-                          Genehmigen
-                        </button>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className="text-sm font-semibold text-[var(--color-text-primary)]">
+                              {reqUser?.firstName} {reqUser?.lastName}
+                            </span>
+                            <span className="text-xs text-[var(--color-text-muted)]">
+                              {reqUser?.department} &middot; {reqUser?.position}
+                            </span>
+                          </div>
+                          <p className="text-sm text-[var(--color-text-primary)]">
+                            {formatDate(req.startDate)} — {formatDate(req.endDate)}
+                          </p>
+                          <p className="text-xs text-[var(--color-text-muted)] mt-0.5">
+                            {typeLabels[req.type]} &middot; {req.days} Tag{req.days !== 1 ? "e" : ""}
+                            {req.reason && ` — ${req.reason}`}
+                          </p>
+                          <p className="text-xs text-[var(--color-text-muted)] mt-0.5">
+                            Beantragt am {formatDate(req.createdAt)}
+                          </p>
+                        </div>
+                        <div className="flex gap-2 flex-shrink-0">
+                          <button
+                            onClick={() => rejectVacation(req.id)}
+                            className="flex items-center gap-1.5 px-3 py-2 bg-red-50 text-red-700 hover:bg-red-100 rounded-lg text-xs font-medium transition-colors"
+                          >
+                            <Ban className="h-3.5 w-3.5" />
+                            Ablehnen
+                          </button>
+                          <button
+                            onClick={() => approveVacation(req.id)}
+                            className="flex items-center gap-1.5 px-3 py-2 bg-green-600 text-white hover:bg-green-700 rounded-lg text-xs font-medium transition-colors"
+                          >
+                            <Check className="h-3.5 w-3.5" />
+                            Genehmigen
+                          </button>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                );
-              })
-            )}
+                  );
+                })
+              )}
+            </div>
           </div>
+
+          {/* Already processed team requests */}
+          {allTeamRequests.filter((r) => r.status !== "ausstehend").length > 0 && (
+            <div className="bg-white rounded-xl border border-[var(--color-border)]">
+              <div className="px-5 py-4 border-b border-[var(--color-border)]">
+                <h2 className="text-base font-semibold text-[var(--color-text-primary)]">
+                  Bearbeitete Anträge
+                </h2>
+              </div>
+              <div className="divide-y divide-[var(--color-border)]">
+                {allTeamRequests.filter((r) => r.status !== "ausstehend").map((req) => {
+                  const reqUser = allUsers.find((u) => u.id === req.userId);
+                  const status = statusConfig[req.status];
+                  const StatusIcon = status.icon;
+                  return (
+                    <div key={req.id} className="px-5 py-4 flex items-center gap-4">
+                      <div className={`h-10 w-10 rounded-lg ${status.bg} flex items-center justify-center flex-shrink-0`}>
+                        <StatusIcon className={`h-5 w-5 ${status.color}`} />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm font-medium text-[var(--color-text-primary)]">
+                            {reqUser?.firstName} {reqUser?.lastName}
+                          </span>
+                          <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${status.bg} ${status.color}`}>
+                            {status.label}
+                          </span>
+                        </div>
+                        <p className="text-xs text-[var(--color-text-muted)] mt-0.5">
+                          {formatDate(req.startDate)} — {formatDate(req.endDate)} &middot; {req.days} Tag{req.days !== 1 ? "e" : ""}
+                        </p>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>
