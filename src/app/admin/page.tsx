@@ -68,11 +68,13 @@ export default function AdminPage() {
   const {
     user,
     allUsers,
+    departments,
     hasRole,
     updateUserRole,
     toggleUserActive,
     addUser,
     removeUser,
+    moveUserToDepartment,
   } = useAuth();
   const router = useRouter();
   const [searchQuery, setSearchQuery] = useState("");
@@ -357,6 +359,22 @@ export default function AdminPage() {
 
                   {!isSelf && (
                     <>
+                      <select
+                        value={u.department}
+                        onChange={(e) => {
+                          const dept = e.target.value;
+                          const deptObj = departments.find((d) => d.name === dept);
+                          moveUserToDepartment(u.id, dept, deptObj?.headId || undefined);
+                        }}
+                        className="px-2 py-1.5 border border-[var(--color-border)] rounded-lg text-xs bg-white focus:outline-none focus:ring-2 focus:ring-[var(--color-primary-500)]"
+                        title="Abteilung zuweisen"
+                      >
+                        <option value="Ohne Abteilung">Ohne Abteilung</option>
+                        {departments.map((d) => (
+                          <option key={d.id} value={d.name}>{d.name}</option>
+                        ))}
+                      </select>
+
                       <select
                         value={u.role}
                         onChange={(e) => handleRoleChange(u.id, e.target.value)}

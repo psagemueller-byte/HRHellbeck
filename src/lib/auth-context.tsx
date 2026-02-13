@@ -1,8 +1,8 @@
 "use client";
 
 import { createContext, useContext, useState, useCallback, useRef, ReactNode } from "react";
-import { User, UserRole, USER_ROLES, NewsArticle, VacationRequest, ChatMessage, Department } from "@/types";
-import { mockUsers, mockNews, mockVacationRequests, mockChatMessages, mockDepartments } from "@/lib/mock-data";
+import { User, UserRole, USER_ROLES, NewsArticle, VacationRequest, ChatMessage, Department, ShiftEntry, ShiftType, SHIFT_TYPES, DisruptionReport, DisruptionCategory, DISRUPTION_CATEGORIES, HandoverProtocol } from "@/types";
+import { mockUsers, mockNews, mockVacationRequests, mockChatMessages, mockDepartments, mockShiftEntries, mockDisruptionReports, mockHandoverProtocols } from "@/lib/mock-data";
 import { isValidEmail, sanitizeString } from "@/lib/sanitize";
 
 const MAX_LOGIN_ATTEMPTS = 5;
@@ -40,6 +40,21 @@ interface AuthContextType {
   markMessagesRead: (partnerId: string) => void;
   getConversations: () => { partnerId: string; partner: User; lastMessage: ChatMessage; unreadCount: number }[];
   getMessages: (partnerId: string) => ChatMessage[];
+  // Shifts
+  shiftEntries: ShiftEntry[];
+  addShift: (data: Omit<ShiftEntry, "id">) => void;
+  updateShift: (shiftId: string, data: Partial<ShiftEntry>) => void;
+  deleteShift: (shiftId: string) => void;
+  getShiftsForUser: (userId: string, month: number, year: number) => ShiftEntry[];
+  // Disruptions
+  disruptionReports: DisruptionReport[];
+  addDisruption: (data: Omit<DisruptionReport, "id" | "createdAt" | "status">) => void;
+  updateDisruptionStatus: (disruptionId: string, status: DisruptionReport["status"]) => void;
+  getDisruptionsForUser: (userId: string) => DisruptionReport[];
+  // Handover Protocols
+  handoverProtocols: HandoverProtocol[];
+  addHandover: (data: Omit<HandoverProtocol, "id" | "createdAt">) => void;
+  getHandoversForUser: (userId: string) => HandoverProtocol[];
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -57,6 +72,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [news, setNews] = useState<NewsArticle[]>(mockNews);
   const [vacationRequests, setVacationRequests] = useState<VacationRequest[]>(mockVacationRequests);
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>(mockChatMessages);
+  const [shiftEntries, setShiftEntries] = useState<ShiftEntry[]>(mockShiftEntries);
+  const [disruptionReports, setDisruptionReports] = useState<DisruptionReport[]>(mockDisruptionReports);
+  const [handoverProtocols, setHandoverProtocols] = useState<HandoverProtocol[]>(mockHandoverProtocols);
   const loginAttempts = useRef(0);
   const lockoutUntil = useRef(0);
 
@@ -391,6 +409,89 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
   }, [user, chatMessages]);
 
+  // --- Shift Management ---
+  const addShift = useCallback((data: Omit<ShiftEntry, "id">) => {
+    if (!SHIFT_TYPES.includes(data.type)) return;
+    const newShift: ShiftEntry = {
+      ...data,
+      id: `shift-${Date.now()}`,
+    };
+    setShiftEntries((prev) => [...prev, newShift]);
+  }, []);
+
+  const updateShift = useCallback((shiftId: string, data: Partial<ShiftEntry>) => {
+    setShiftEntries((prev) =>
+      prev.map((s) => (s.id === shiftId ? { ...s, ...data } : s))
+    );
+  }, []);
+
+  const deleteShift = useCallback((shiftId: string) => {
+    setShiftEntries((prev) => prev.filter((s) => s.id !== shiftId));
+  }, []);
+
+  const getShiftsForUser = useCallback((userId: string, month: number, year: number) => {
+    return shiftEntries.filter((s) => {
+      if (s.userId !== userId) return false;
+      const d = new Date(s.date);
+      return d.getMonth() === month && d.getFullYear() === year;
+    });
+  }, [shiftEntries]);
+
+  // --- Disruption Management ---
+  const addDisruption = useCallback((data: Omit<DisruptionReport, "id" | "createdAt" | "status">) => {
+    if (!DISRUPTION_CATEGORIES.includes(data.category)) return;
+    const newReport: DisruptionReport = {
+      ...data,
+      id: `dis-${Date.now()}`,
+      createdAt: new Date().toISOString(),
+      status: "offen",
+    };
+    setDisruptionReports((prev) => [newReport, ...prev]);
+    // Send chat message to supervisor
+    if (data.assignedTo && user) {
+      const newMsg: ChatMessage = {
+        id: `msg-${Date.now()}-dis`,
+        senderId: user.id,
+        receiverId: data.assignedTo,
+        content: `Neue Störungsmeldung: ${data.title} (${data.category})`,
+        timestamp: new Date().toISOString(),
+        read: false,
+      };
+      setChatMessages((prev) => [...prev, newMsg]);
+    }
+  }, [user]);
+
+  const updateDisruptionStatus = useCallback((disruptionId: string, status: DisruptionReport["status"]) => {
+    const validStatuses: DisruptionReport["status"][] = ["offen", "in_bearbeitung", "erledigt"];
+    if (!validStatuses.includes(status)) return;
+    setDisruptionReports((prev) =>
+      prev.map((d) => (d.id === disruptionId ? { ...d, status } : d))
+    );
+  }, []);
+
+  const getDisruptionsForUser = useCallback((userId: string) => {
+    return disruptionReports.filter(
+      (d) => d.reporterId === userId || d.assignedTo === userId
+    ).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  }, [disruptionReports]);
+
+  // --- Handover Protocol Management ---
+  const addHandover = useCallback((data: Omit<HandoverProtocol, "id" | "createdAt">) => {
+    if (!SHIFT_TYPES.includes(data.shiftType)) return;
+    const newProtocol: HandoverProtocol = {
+      ...data,
+      id: `hand-${Date.now()}`,
+      createdAt: new Date().toISOString(),
+    };
+    setHandoverProtocols((prev) => [newProtocol, ...prev]);
+  }, []);
+
+  const getHandoversForUser = useCallback((userId: string) => {
+    return handoverProtocols
+      .filter((h) => h.authorId === userId)
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  }, [handoverProtocols]);
+
   return (
     <AuthContext.Provider
       value={{
@@ -425,6 +526,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         markMessagesRead,
         getConversations,
         getMessages,
+        shiftEntries,
+        addShift,
+        updateShift,
+        deleteShift,
+        getShiftsForUser,
+        disruptionReports,
+        addDisruption,
+        updateDisruptionStatus,
+        getDisruptionsForUser,
+        handoverProtocols,
+        addHandover,
+        getHandoversForUser,
       }}
     >
       {children}

@@ -15,6 +15,9 @@ import {
   MessageSquare,
   Network,
   Newspaper,
+  Calendar,
+  AlertTriangle,
+  ClipboardList,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { UserRole } from "@/types";
@@ -29,7 +32,10 @@ const navItems = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard, minRole: "benutzer" as UserRole },
   { href: "/news", label: "News", icon: Newspaper, minRole: "benutzer" as UserRole },
   { href: "/profile", label: "Meine Daten", icon: User, minRole: "benutzer" as UserRole },
+  { href: "/kalender", label: "Kalender", icon: Calendar, minRole: "benutzer" as UserRole },
   { href: "/vacation", label: "Urlaub", icon: Palmtree, minRole: "benutzer" as UserRole },
+  { href: "/stoerungen", label: "Störungen", icon: AlertTriangle, minRole: "benutzer" as UserRole },
+  { href: "/uebergabe", label: "Übergabe", icon: ClipboardList, minRole: "benutzer" as UserRole },
   { href: "/chat", label: "Nachrichten", icon: MessageSquare, minRole: "benutzer" as UserRole },
   { href: "/organigramm", label: "Organigramm", icon: Network, minRole: "admin" as UserRole },
   { href: "/admin", label: "Administration", icon: Shield, minRole: "admin" as UserRole },

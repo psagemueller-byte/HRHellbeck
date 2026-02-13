@@ -1,4 +1,4 @@
-import { User, VacationRequest, VacationBalance, NewsArticle, Department, ChatMessage } from "@/types";
+import { User, VacationRequest, VacationBalance, NewsArticle, Department, ChatMessage, ShiftEntry, DisruptionReport, HandoverProtocol } from "@/types";
 
 export const mockDepartments: Department[] = [
   { id: "dept-hr", name: "HR", headId: "usr-001", color: "bg-purple-100 text-purple-700 border-purple-200" },
@@ -247,6 +247,86 @@ export const mockNews: NewsArticle[] = [
     category: "unternehmen",
     publishedAt: "2026-01-15",
     likes: ["usr-001", "usr-003"],
+  },
+];
+
+export const mockShiftEntries: ShiftEntry[] = [
+  { id: "shift-001", userId: "usr-003", date: "2026-02-09", type: "frueh", startTime: "06:00", endTime: "14:00", createdBy: "usr-001" },
+  { id: "shift-002", userId: "usr-003", date: "2026-02-10", type: "frueh", startTime: "06:00", endTime: "14:00", createdBy: "usr-001" },
+  { id: "shift-003", userId: "usr-003", date: "2026-02-11", type: "spaet", startTime: "14:00", endTime: "22:00", createdBy: "usr-001" },
+  { id: "shift-004", userId: "usr-003", date: "2026-02-12", type: "spaet", startTime: "14:00", endTime: "22:00", createdBy: "usr-001" },
+  { id: "shift-005", userId: "usr-003", date: "2026-02-13", type: "frei", createdBy: "usr-001" },
+  { id: "shift-006", userId: "usr-005", date: "2026-02-09", type: "spaet", startTime: "14:00", endTime: "22:00", createdBy: "usr-003" },
+  { id: "shift-007", userId: "usr-005", date: "2026-02-10", type: "spaet", startTime: "14:00", endTime: "22:00", createdBy: "usr-003" },
+  { id: "shift-008", userId: "usr-005", date: "2026-02-11", type: "frueh", startTime: "06:00", endTime: "14:00", createdBy: "usr-003" },
+  { id: "shift-009", userId: "usr-005", date: "2026-02-12", type: "nacht", startTime: "22:00", endTime: "06:00", createdBy: "usr-003" },
+  { id: "shift-010", userId: "usr-005", date: "2026-02-13", type: "frueh", startTime: "06:00", endTime: "14:00", createdBy: "usr-003" },
+  { id: "shift-011", userId: "usr-004", date: "2026-02-10", type: "frueh", startTime: "06:00", endTime: "14:00", createdBy: "usr-001" },
+  { id: "shift-012", userId: "usr-004", date: "2026-02-11", type: "frueh", startTime: "06:00", endTime: "14:00", createdBy: "usr-001" },
+  { id: "shift-013", userId: "usr-004", date: "2026-02-12", type: "frei", createdBy: "usr-001" },
+  { id: "shift-014", userId: "usr-004", date: "2026-02-13", type: "spaet", startTime: "14:00", endTime: "22:00", createdBy: "usr-001" },
+];
+
+export const mockDisruptionReports: DisruptionReport[] = [
+  {
+    id: "dis-001",
+    reporterId: "usr-005",
+    category: "maschinenstillstand",
+    title: "CNC-Fräse Halle 2 ausgefallen",
+    description: "Die CNC-Fräse in Halle 2 zeigt Fehlermeldung E-45. Produktion steht still.",
+    location: "Halle 2, Maschine CNC-F02",
+    imageUrls: [],
+    status: "offen",
+    createdAt: "2026-02-13T08:30:00",
+    assignedTo: "usr-003",
+  },
+  {
+    id: "dis-002",
+    reporterId: "usr-003",
+    category: "it-stoerung",
+    title: "ERP-System reagiert nicht",
+    description: "Seit heute Morgen ist das ERP-System extrem langsam und teilweise nicht erreichbar.",
+    imageUrls: [],
+    status: "in_bearbeitung",
+    createdAt: "2026-02-12T10:15:00",
+    assignedTo: "usr-001",
+  },
+  {
+    id: "dis-003",
+    reporterId: "usr-004",
+    category: "qualitaetsmangel",
+    title: "Lieferung Charge #4521 fehlerhaft",
+    description: "Die angelieferte Charge #4521 weist sichtbare Oberflächenfehler auf. 30% der Teile sind nicht verwendbar.",
+    location: "Wareneingang",
+    imageUrls: [],
+    status: "erledigt",
+    createdAt: "2026-02-10T14:00:00",
+    assignedTo: "usr-001",
+  },
+];
+
+export const mockHandoverProtocols: HandoverProtocol[] = [
+  {
+    id: "hand-001",
+    authorId: "usr-003",
+    shiftDate: "2026-02-12",
+    shiftType: "frueh",
+    machineStatus: "Alle Maschinen laufen normal. CNC-Fräse 3 wurde gewartet.",
+    openTasks: "Auftrag #1234 muss bis Schichtende fertiggestellt werden. Material für Auftrag #1235 bestellt.",
+    incidents: "Keine besonderen Vorkommnisse.",
+    notes: "Neuer Mitarbeiter Ben Wagner wurde eingewiesen.",
+    createdAt: "2026-02-12T13:45:00",
+  },
+  {
+    id: "hand-002",
+    authorId: "usr-005",
+    shiftDate: "2026-02-12",
+    shiftType: "spaet",
+    machineStatus: "CNC-Fräse 2 zeigt intermittierende Fehler. Techniker wurde informiert.",
+    openTasks: "Auftrag #1234 zu 80% fertig. Rest muss in Nachtschicht erledigt werden.",
+    incidents: "Kurzer Stromausfall um 18:30, alle Maschinen neugestartet.",
+    notes: "Lagerbestand Rohmaterial wird knapp — bitte nachbestellen.",
+    createdAt: "2026-02-12T21:50:00",
   },
 ];
 

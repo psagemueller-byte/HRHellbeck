@@ -70,6 +70,55 @@ export interface ChatMessage {
   read: boolean;
 }
 
+export const SHIFT_TYPES = ["frueh", "spaet", "nacht", "frei", "feiertag", "urlaub"] as const;
+export type ShiftType = (typeof SHIFT_TYPES)[number];
+
+export interface ShiftEntry {
+  id: string;
+  userId: string;
+  date: string;
+  type: ShiftType;
+  startTime?: string;
+  endTime?: string;
+  note?: string;
+  createdBy: string;
+}
+
+export const DISRUPTION_CATEGORIES = [
+  "maschinenstillstand",
+  "materialfehler",
+  "qualitaetsmangel",
+  "sicherheitsvorfall",
+  "it-stoerung",
+  "sonstiges",
+] as const;
+export type DisruptionCategory = (typeof DISRUPTION_CATEGORIES)[number];
+
+export interface DisruptionReport {
+  id: string;
+  reporterId: string;
+  category: DisruptionCategory;
+  title: string;
+  description: string;
+  location?: string;
+  imageUrls: string[];
+  status: "offen" | "in_bearbeitung" | "erledigt";
+  createdAt: string;
+  assignedTo?: string;
+}
+
+export interface HandoverProtocol {
+  id: string;
+  authorId: string;
+  shiftDate: string;
+  shiftType: ShiftType;
+  machineStatus: string;
+  openTasks: string;
+  incidents: string;
+  notes: string;
+  createdAt: string;
+}
+
 export interface HRToolConfig {
   apiBaseUrl: string;
   apiKey: string;
