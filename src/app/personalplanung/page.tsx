@@ -163,14 +163,32 @@ export default function PersonalplanungPage() {
   const openCellModal = (employeeId: string, dateStr: string) => {
     setSelectedEmployee(employeeId);
     setModalMode("single");
-    setAssignType("frueh");
     setAssignStart(dateStr);
     setAssignEnd(dateStr);
-    setAssignStartTime("06:00");
-    setAssignEndTime("14:00");
     setIncludeWeekends(true); // single day = always include
     setFormError("");
     setVacationConflicts([]);
+
+    // Pre-select existing shift type and times if present
+    const existing = scheduleMap[employeeId]?.[dateStr];
+    if (existing?.type === "shift" && existing.shiftType && ASSIGNABLE_SHIFTS.includes(existing.shiftType)) {
+      setAssignType(existing.shiftType);
+      // Load existing times from the actual shift entry
+      const shiftEntry = shiftEntries.find((s) => s.id === existing.shiftId);
+      if (shiftEntry?.startTime) setAssignStartTime(shiftEntry.startTime);
+      else if (existing.shiftType === "frueh") setAssignStartTime("06:00");
+      else if (existing.shiftType === "spaet") setAssignStartTime("14:00");
+      else if (existing.shiftType === "nacht") setAssignStartTime("22:00");
+      if (shiftEntry?.endTime) setAssignEndTime(shiftEntry.endTime);
+      else if (existing.shiftType === "frueh") setAssignEndTime("14:00");
+      else if (existing.shiftType === "spaet") setAssignEndTime("22:00");
+      else if (existing.shiftType === "nacht") setAssignEndTime("06:00");
+    } else {
+      setAssignType("frueh");
+      setAssignStartTime("06:00");
+      setAssignEndTime("14:00");
+    }
+
     setShowAssignModal(true);
   };
 
@@ -526,7 +544,7 @@ export default function PersonalplanungPage() {
                     <button
                       onClick={() => {
                         if (existing.shiftId) deleteShift(existing.shiftId);
-                        setShowAssignModal(false);
+                        // Stay in modal so user can reassign or just close
                       }}
                       className="flex items-center gap-1 px-2 py-1 text-xs text-red-600 hover:bg-red-100 rounded transition-colors"
                     >
