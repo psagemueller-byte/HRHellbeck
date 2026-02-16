@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth-context";
-import { Building2, Eye, EyeOff, ArrowRight } from "lucide-react";
+import { Eye, EyeOff, ArrowRight } from "lucide-react";
 import Link from "next/link";
 
 export default function LoginPage() {
@@ -47,7 +47,7 @@ export default function LoginPage() {
       {/* Left side — Branding */}
       <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-[var(--color-primary-600)] to-[var(--color-primary-900)] p-12 flex-col justify-between">
         <div className="flex items-center gap-3">
-          <Building2 className="h-10 w-10 text-white" />
+          <img src="/logo_hellbeck.svg" alt="Hellbeck" className="h-12 brightness-0 invert" />
           <span className="text-2xl font-bold text-white">HR Portal</span>
         </div>
         <div>
@@ -70,7 +70,7 @@ export default function LoginPage() {
         <div className="w-full max-w-md">
           {/* Mobile logo */}
           <div className="lg:hidden flex items-center gap-3 mb-10">
-            <Building2 className="h-8 w-8 text-[var(--color-primary-600)]" />
+            <img src="/logo_hellbeck.svg" alt="Hellbeck" className="h-10" />
             <span className="text-xl font-bold text-[var(--color-text-primary)]">
               HR Portal
             </span>

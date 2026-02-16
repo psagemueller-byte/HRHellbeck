@@ -7,7 +7,6 @@ import {
   User,
   Palmtree,
   LogOut,
-  Building2,
   Shield,
   Crown,
   PenTool,
@@ -55,8 +54,8 @@ export default function Sidebar() {
     <aside className="fixed left-0 top-0 h-screen w-64 bg-white border-r border-[var(--color-border)] flex flex-col z-50">
       {/* Logo */}
       <div className="h-16 flex items-center px-6 border-b border-[var(--color-border)]">
-        <Building2 className="h-8 w-8 text-[var(--color-primary-600)] mr-3" />
-        <span className="text-xl font-bold text-[var(--color-text-primary)]">
+        <img src="/logo_hellbeck.svg" alt="Hellbeck" className="h-9 mr-3" />
+        <span className="text-lg font-bold text-[var(--color-text-primary)]">
           HR Portal
         </span>
       </div>
