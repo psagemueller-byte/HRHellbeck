@@ -17,6 +17,7 @@ import {
   Calendar,
   AlertTriangle,
   ClipboardList,
+  CalendarRange,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { UserRole } from "@/types";
@@ -27,25 +28,27 @@ const roleLabels: Record<UserRole, { label: string; icon: typeof Crown; color: s
   benutzer: { label: "Benutzer", icon: UserIcon, color: "text-gray-500" },
 };
 
-const navItems = [
-  { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard, minRole: "benutzer" as UserRole },
-  { href: "/news", label: "News", icon: Newspaper, minRole: "benutzer" as UserRole },
-  { href: "/profile", label: "Meine Daten", icon: User, minRole: "benutzer" as UserRole },
-  { href: "/kalender", label: "Kalender", icon: Calendar, minRole: "benutzer" as UserRole },
-  { href: "/vacation", label: "Urlaub", icon: Palmtree, minRole: "benutzer" as UserRole },
-  { href: "/stoerungen", label: "Störungen", icon: AlertTriangle, minRole: "benutzer" as UserRole },
-  { href: "/uebergabe", label: "Übergabe", icon: ClipboardList, minRole: "benutzer" as UserRole },
-  { href: "/chat", label: "Nachrichten", icon: MessageSquare, minRole: "benutzer" as UserRole },
-  { href: "/organigramm", label: "Organigramm", icon: Network, minRole: "admin" as UserRole },
-  { href: "/admin", label: "Administration", icon: Shield, minRole: "admin" as UserRole },
+const navItems: { href: string; label: string; icon: typeof LayoutDashboard; minRole: UserRole; managerOnly?: boolean }[] = [
+  { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard, minRole: "benutzer" },
+  { href: "/news", label: "News", icon: Newspaper, minRole: "benutzer" },
+  { href: "/profile", label: "Meine Daten", icon: User, minRole: "benutzer" },
+  { href: "/kalender", label: "Kalender", icon: Calendar, minRole: "benutzer" },
+  { href: "/personalplanung", label: "Personalplanung", icon: CalendarRange, minRole: "benutzer", managerOnly: true },
+  { href: "/vacation", label: "Urlaub", icon: Palmtree, minRole: "benutzer" },
+  { href: "/stoerungen", label: "Störungen", icon: AlertTriangle, minRole: "benutzer" },
+  { href: "/uebergabe", label: "Übergabe", icon: ClipboardList, minRole: "benutzer" },
+  { href: "/chat", label: "Nachrichten", icon: MessageSquare, minRole: "benutzer" },
+  { href: "/organigramm", label: "Organigramm", icon: Network, minRole: "admin" },
+  { href: "/admin", label: "Administration", icon: Shield, minRole: "admin" },
 ];
 
 export default function Sidebar() {
   const pathname = usePathname();
-  const { user, logout, hasRole, getConversations, getPendingApprovalsCount } = useAuth();
+  const { user, logout, hasRole, allUsers, getConversations, getPendingApprovalsCount } = useAuth();
   const conversations = getConversations();
   const totalUnread = conversations.reduce((sum, c) => sum + c.unreadCount, 0);
   const pendingApprovals = getPendingApprovalsCount();
+  const isManager = user?.role === "admin" || allUsers.some((u) => u.managerId === user?.id);
 
   const roleInfo = user ? roleLabels[user.role] : null;
   const RoleBadgeIcon = roleInfo?.icon;
@@ -64,7 +67,7 @@ export default function Sidebar() {
       <nav className="flex-1 py-6 px-3">
         <ul className="space-y-1">
           {navItems
-            .filter((item) => hasRole(item.minRole))
+            .filter((item) => hasRole(item.minRole) && (!item.managerOnly || isManager))
             .map((item) => {
               const isActive = pathname === item.href;
               const Icon = item.icon;
