@@ -1,7 +1,6 @@
 "use client";
 
 import { useAuth } from "@/lib/auth-context";
-import { mockVacationBalance } from "@/lib/mock-data";
 import {
   Palmtree,
   CalendarCheck,
@@ -13,6 +12,7 @@ import {
   Briefcase,
   ChevronRight,
   ThumbsUp,
+  Thermometer,
 } from "lucide-react";
 import Link from "next/link";
 
@@ -46,8 +46,10 @@ function formatDate(dateStr: string) {
 }
 
 export default function DashboardPage() {
-  const { user, news, toggleNewsLike } = useAuth();
-  const balance = mockVacationBalance;
+  const { user, news, toggleNewsLike, getVacationBalance, getSickDaysCount } = useAuth();
+  const balance = user ? getVacationBalance(user.id) : { total: 0, used: 0, planned: 0, remaining: 0 };
+  const currentYear = new Date().getFullYear();
+  const sickDays = user ? getSickDaysCount(user.id, currentYear) : null;
 
   const greeting = () => {
     const hour = new Date().getHours();
@@ -68,8 +70,8 @@ export default function DashboardPage() {
         </p>
       </div>
 
-      {/* Vacation stats */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+      {/* Vacation & sick day stats */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-8">
         <div className="bg-white rounded-xl border border-[var(--color-border)] p-5">
           <div className="flex items-center gap-3 mb-3">
             <div className="h-10 w-10 rounded-lg bg-blue-100 flex items-center justify-center">
@@ -123,6 +125,20 @@ export default function DashboardPage() {
           </div>
           <p className="text-2xl font-bold text-emerald-600">
             {balance.remaining} Tage
+          </p>
+        </div>
+
+        <div className="bg-white rounded-xl border border-[var(--color-border)] p-5">
+          <div className="flex items-center gap-3 mb-3">
+            <div className="h-10 w-10 rounded-lg bg-pink-100 flex items-center justify-center">
+              <Thermometer className="h-5 w-5 text-pink-600" />
+            </div>
+            <span className="text-sm font-medium text-[var(--color-text-secondary)]">
+              Kranktage {currentYear}
+            </span>
+          </div>
+          <p className="text-2xl font-bold text-pink-600">
+            {sickDays !== null ? `${sickDays} Tage` : "—"}
           </p>
         </div>
       </div>

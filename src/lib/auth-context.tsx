@@ -54,6 +54,8 @@ interface AuthContextType {
   updateShift: (shiftId: string, data: Partial<ShiftEntry>) => void;
   deleteShift: (shiftId: string) => void;
   getShiftsForUser: (userId: string, month: number, year: number) => ShiftEntry[];
+  // Sick days (access-controlled: own, manager, admin only)
+  getSickDaysCount: (targetUserId: string, year: number) => number | null;
   // Disruptions
   disruptionReports: DisruptionReport[];
   addDisruption: (data: Omit<DisruptionReport, "id" | "createdAt" | "status">) => void;
@@ -536,6 +538,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
   }, [shiftEntries]);
 
+  // --- Sick Days (access-controlled) ---
+  const getSickDaysCount = useCallback((targetUserId: string, year: number): number | null => {
+    if (!user) return null;
+    // Access control: only self, manager of target, or admin
+    const isOwn = user.id === targetUserId;
+    const isAdmin = user.role === "admin";
+    const targetUser = allUsers.find((u) => u.id === targetUserId);
+    const isManager = targetUser?.managerId === user.id;
+
+    if (!isOwn && !isAdmin && !isManager) return null;
+
+    return shiftEntries.filter((s) => {
+      if (s.userId !== targetUserId || s.type !== "krank") return false;
+      const d = new Date(s.date);
+      return d.getFullYear() === year;
+    }).length;
+  }, [user, allUsers, shiftEntries]);
+
   // --- Disruption Management ---
   const addDisruption = useCallback((data: Omit<DisruptionReport, "id" | "createdAt" | "status">) => {
     if (!DISRUPTION_CATEGORIES.includes(data.category)) return;
@@ -636,6 +656,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         updateShift,
         deleteShift,
         getShiftsForUser,
+        getSickDaysCount,
         disruptionReports,
         addDisruption,
         updateDisruptionStatus,
