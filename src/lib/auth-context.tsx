@@ -552,7 +552,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return shiftEntries.filter((s) => {
       if (s.userId !== targetUserId || s.type !== "krank") return false;
       const d = new Date(s.date);
-      return d.getFullYear() === year;
+      if (d.getFullYear() !== year) return false;
+      // Wochenenden nicht mitzählen (0=So, 6=Sa)
+      const dow = d.getDay();
+      return dow !== 0 && dow !== 6;
     }).length;
   }, [user, allUsers, shiftEntries]);
 

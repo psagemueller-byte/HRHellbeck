@@ -19,6 +19,7 @@ import {
   Ban,
   RotateCcw,
   AlertTriangle,
+  Thermometer,
 } from "lucide-react";
 
 const statusConfig: Record<
@@ -69,12 +70,15 @@ export default function VacationPage() {
     rejectVacation,
     canApproveVacation,
     getVacationBalance,
+    getSickDaysCount,
     vacationCancelRequests,
     requestVacationCancel,
     approveVacationCancel,
     rejectVacationCancel,
   } = useAuth();
   const balance = user ? getVacationBalance(user.id) : { total: 30, used: 0, planned: 0, remaining: 30 };
+  const currentYear = new Date().getFullYear();
+  const sickDays = user ? getSickDaysCount(user.id, currentYear) : null;
   const [showForm, setShowForm] = useState(false);
   const [activeTab, setActiveTab] = useState<"mine" | "approvals">("mine");
   const [formData, setFormData] = useState({
@@ -220,7 +224,7 @@ export default function VacationPage() {
       </div>
 
       {/* Balance cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-8">
         <div className="bg-white rounded-xl border border-[var(--color-border)] p-5">
           <div className="flex items-center gap-3 mb-3">
             <div className="h-10 w-10 rounded-lg bg-blue-100 flex items-center justify-center">
@@ -274,6 +278,20 @@ export default function VacationPage() {
           </div>
           <p className="text-2xl font-bold text-emerald-600">
             {balance.remaining} Tage
+          </p>
+        </div>
+
+        <div className="bg-white rounded-xl border border-[var(--color-border)] p-5">
+          <div className="flex items-center gap-3 mb-3">
+            <div className="h-10 w-10 rounded-lg bg-pink-100 flex items-center justify-center">
+              <Thermometer className="h-5 w-5 text-pink-600" />
+            </div>
+            <span className="text-sm font-medium text-[var(--color-text-secondary)]">
+              Kranktage {currentYear}
+            </span>
+          </div>
+          <p className="text-2xl font-bold text-pink-600">
+            {sickDays !== null ? `${sickDays} Tage` : "—"}
           </p>
         </div>
       </div>
