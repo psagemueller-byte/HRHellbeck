@@ -511,11 +511,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [user, chatMessages]);
 
   // --- Shift Management ---
+  const shiftCounter = useRef(0);
   const addShift = useCallback((data: Omit<ShiftEntry, "id">) => {
     if (!SHIFT_TYPES.includes(data.type)) return;
+    shiftCounter.current += 1;
     const newShift: ShiftEntry = {
       ...data,
-      id: `shift-${Date.now()}`,
+      id: `shift-${Date.now()}-${shiftCounter.current}`,
     };
     setShiftEntries((prev) => [...prev, newShift]);
   }, []);

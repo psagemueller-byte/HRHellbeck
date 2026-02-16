@@ -35,6 +35,8 @@ const shiftConfig: Record<ShiftType, { label: string; short: string; color: stri
 };
 
 const ASSIGNABLE_SHIFTS: ShiftType[] = ["frueh", "spaet", "nacht", "frei", "krank"];
+// Typen, bei denen Wochenenden IMMER übersprungen werden (unabhängig von Checkbox)
+const ALWAYS_SKIP_WEEKENDS: ShiftType[] = ["krank"];
 
 function formatDateStr(year: number, month: number, day: number) {
   return `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
@@ -220,7 +222,7 @@ export default function PersonalplanungPage() {
     if (!user || !selectedEmployee) return;
     const start = new Date(assignStart);
     const end = new Date(assignEnd);
-    const skipWeekends = !includeWeekends && TIME_SHIFTS.includes(assignType);
+    const skipWeekends = ALWAYS_SKIP_WEEKENDS.includes(assignType) || (!includeWeekends && TIME_SHIFTS.includes(assignType));
 
     for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
       const dow = d.getDay();
@@ -263,7 +265,7 @@ export default function PersonalplanungPage() {
       return;
     }
 
-    const skipWeekends = !includeWeekends && TIME_SHIFTS.includes(assignType);
+    const skipWeekends = ALWAYS_SKIP_WEEKENDS.includes(assignType) || (!includeWeekends && TIME_SHIFTS.includes(assignType));
     const conflicts = getVacationDatesInRange(selectedEmployee, assignStart, assignEnd, skipWeekends);
     if (conflicts.length > 0) {
       const emp = allUsers.find((u) => u.id === selectedEmployee);
@@ -292,7 +294,7 @@ export default function PersonalplanungPage() {
     let count = 0;
     const s = new Date(assignStart);
     const e = new Date(assignEnd);
-    const skipWeekends = !includeWeekends && TIME_SHIFTS.includes(assignType);
+    const skipWeekends = ALWAYS_SKIP_WEEKENDS.includes(assignType) || (!includeWeekends && TIME_SHIFTS.includes(assignType));
     for (let d = new Date(s); d <= e; d.setDate(d.getDate() + 1)) {
       const dow = d.getDay();
       if (skipWeekends && (dow === 0 || dow === 6)) continue;
