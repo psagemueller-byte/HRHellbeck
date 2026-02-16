@@ -18,6 +18,8 @@ import {
   CalendarRange,
   X,
   Check,
+  Thermometer,
+  Trash2,
 } from "lucide-react";
 import { ShiftType, SHIFT_TYPES } from "@/types";
 
@@ -29,9 +31,10 @@ const shiftConfig: Record<ShiftType, { label: string; short: string; color: stri
   feiertag: { label: "Feiertag", short: "FT", color: "text-red-600", bg: "bg-red-100 border-red-300", cellBg: "bg-red-200", icon: Star },
   urlaub: { label: "Urlaub", short: "U", color: "text-green-700", bg: "bg-green-100 border-green-300", cellBg: "bg-green-300", icon: Palmtree },
   sonderurlaub: { label: "Sonderurlaub", short: "SU", color: "text-teal-700", bg: "bg-teal-100 border-teal-300", cellBg: "bg-teal-300", icon: Briefcase },
+  krank: { label: "Krank", short: "K", color: "text-pink-700", bg: "bg-pink-100 border-pink-300", cellBg: "bg-pink-200", icon: Thermometer },
 };
 
-const ASSIGNABLE_SHIFTS: ShiftType[] = ["frueh", "spaet", "nacht", "frei"];
+const ASSIGNABLE_SHIFTS: ShiftType[] = ["frueh", "spaet", "nacht", "frei", "krank"];
 
 function formatDateStr(year: number, month: number, day: number) {
   return `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
@@ -47,6 +50,7 @@ function getWeekday(year: number, month: number, day: number) {
 }
 
 const WEEKDAY_SHORT = ["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"];
+const TIME_SHIFTS: ShiftType[] = ["frueh", "spaet", "nacht"];
 
 export default function PersonalplanungPage() {
   const {
@@ -61,13 +65,16 @@ export default function PersonalplanungPage() {
 
   const [currentMonth, setCurrentMonth] = useState(new Date().getMonth());
   const [currentYear, setCurrentYear] = useState(new Date().getFullYear());
+  // Modal state
   const [showAssignModal, setShowAssignModal] = useState(false);
+  const [modalMode, setModalMode] = useState<"single" | "range">("range");
   const [selectedEmployee, setSelectedEmployee] = useState<string | null>(null);
   const [assignType, setAssignType] = useState<ShiftType>("frueh");
   const [assignStart, setAssignStart] = useState("");
   const [assignEnd, setAssignEnd] = useState("");
   const [assignStartTime, setAssignStartTime] = useState("06:00");
   const [assignEndTime, setAssignEndTime] = useState("14:00");
+  const [includeWeekends, setIncludeWeekends] = useState(false);
   const [formError, setFormError] = useState("");
   const [vacationConflicts, setVacationConflicts] = useState<string[]>([]);
   const [conflictEmployeeName, setConflictEmployeeName] = useState("");
@@ -132,34 +139,51 @@ export default function PersonalplanungPage() {
     else setCurrentMonth(currentMonth + 1);
   };
 
-  const openAssignModal = (employeeId: string) => {
+  // Open modal for Von-Bis range (click on employee name)
+  const openRangeModal = (employeeId: string) => {
     const today = new Date();
     const startDate = today.getMonth() === currentMonth && today.getFullYear() === currentYear
       ? formatDateStr(currentYear, currentMonth, today.getDate())
       : formatDateStr(currentYear, currentMonth, 1);
 
     setSelectedEmployee(employeeId);
+    setModalMode("range");
     setAssignType("frueh");
     setAssignStart(startDate);
     setAssignEnd(startDate);
     setAssignStartTime("06:00");
     setAssignEndTime("14:00");
+    setIncludeWeekends(false);
+    setFormError("");
+    setVacationConflicts([]);
+    setShowAssignModal(true);
+  };
+
+  // Open modal for a single cell (click on specific day cell)
+  const openCellModal = (employeeId: string, dateStr: string) => {
+    setSelectedEmployee(employeeId);
+    setModalMode("single");
+    setAssignType("frueh");
+    setAssignStart(dateStr);
+    setAssignEnd(dateStr);
+    setAssignStartTime("06:00");
+    setAssignEndTime("14:00");
+    setIncludeWeekends(true); // single day = always include
     setFormError("");
     setVacationConflicts([]);
     setShowAssignModal(true);
   };
 
   // Find approved vacation dates for an employee in a range
-  const getVacationDatesInRange = (userId: string, startDate: string, endDate: string): string[] => {
+  const getVacationDatesInRange = (userId: string, startDate: string, endDate: string, skipWeekends: boolean): string[] => {
     const conflicts: string[] = [];
     const start = new Date(startDate);
     const end = new Date(endDate);
 
     for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
       const dateStr = formatDateStr(d.getFullYear(), d.getMonth(), d.getDate());
-      // Skip weekends
       const dow = d.getDay();
-      if (dow === 0 || dow === 6) continue;
+      if (skipWeekends && (dow === 0 || dow === 6)) continue;
 
       for (const v of vacationRequests) {
         if (v.userId !== userId || v.status !== "genehmigt") continue;
@@ -178,11 +202,11 @@ export default function PersonalplanungPage() {
     if (!user || !selectedEmployee) return;
     const start = new Date(assignStart);
     const end = new Date(assignEnd);
+    const skipWeekends = !includeWeekends && TIME_SHIFTS.includes(assignType);
 
     for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
       const dow = d.getDay();
-      // Skip weekends by default for work shifts
-      if ((assignType === "frueh" || assignType === "spaet" || assignType === "nacht") && (dow === 0 || dow === 6)) continue;
+      if (skipWeekends && (dow === 0 || dow === 6)) continue;
 
       const dateStr = formatDateStr(d.getFullYear(), d.getMonth(), d.getDate());
 
@@ -197,8 +221,8 @@ export default function PersonalplanungPage() {
         userId: selectedEmployee,
         date: dateStr,
         type: assignType,
-        startTime: (assignType === "frueh" || assignType === "spaet" || assignType === "nacht") ? assignStartTime : undefined,
-        endTime: (assignType === "frueh" || assignType === "spaet" || assignType === "nacht") ? assignEndTime : undefined,
+        startTime: TIME_SHIFTS.includes(assignType) ? assignStartTime : undefined,
+        endTime: TIME_SHIFTS.includes(assignType) ? assignEndTime : undefined,
         createdBy: user.id,
       });
     }
@@ -213,7 +237,7 @@ export default function PersonalplanungPage() {
     if (!SHIFT_TYPES.includes(assignType)) return;
 
     if (!assignStart || !assignEnd) {
-      setFormError("Bitte Von- und Bis-Datum angeben.");
+      setFormError("Bitte Datum angeben.");
       return;
     }
     if (new Date(assignStart) > new Date(assignEnd)) {
@@ -221,8 +245,8 @@ export default function PersonalplanungPage() {
       return;
     }
 
-    // Check for vacation conflicts
-    const conflicts = getVacationDatesInRange(selectedEmployee, assignStart, assignEnd);
+    const skipWeekends = !includeWeekends && TIME_SHIFTS.includes(assignType);
+    const conflicts = getVacationDatesInRange(selectedEmployee, assignStart, assignEnd, skipWeekends);
     if (conflicts.length > 0) {
       const emp = allUsers.find((u) => u.id === selectedEmployee);
       setVacationConflicts(conflicts);
@@ -233,11 +257,9 @@ export default function PersonalplanungPage() {
     doAssignShifts(false);
   };
 
-  // Today indicator
   const today = new Date();
   const todayStr = formatDateStr(today.getFullYear(), today.getMonth(), today.getDate());
 
-  // Update times when shift type changes
   const handleShiftTypeChange = (type: ShiftType) => {
     if (!SHIFT_TYPES.includes(type)) return;
     setAssignType(type);
@@ -245,6 +267,23 @@ export default function PersonalplanungPage() {
     else if (type === "spaet") { setAssignStartTime("14:00"); setAssignEndTime("22:00"); }
     else if (type === "nacht") { setAssignStartTime("22:00"); setAssignEndTime("06:00"); }
   };
+
+  // Preview days count
+  const previewDays = useMemo(() => {
+    if (!assignStart || !assignEnd || new Date(assignStart) > new Date(assignEnd)) return 0;
+    let count = 0;
+    const s = new Date(assignStart);
+    const e = new Date(assignEnd);
+    const skipWeekends = !includeWeekends && TIME_SHIFTS.includes(assignType);
+    for (let d = new Date(s); d <= e; d.setDate(d.getDate() + 1)) {
+      const dow = d.getDay();
+      if (skipWeekends && (dow === 0 || dow === 6)) continue;
+      count++;
+    }
+    return count;
+  }, [assignStart, assignEnd, includeWeekends, assignType]);
+
+  const selectedEmployeeData = allUsers.find((u) => u.id === selectedEmployee);
 
   if (!user) return null;
 
@@ -348,13 +387,13 @@ export default function PersonalplanungPage() {
               {teamMembers.map((member) => {
                 const balance = getVacationBalance(member.id);
                 return (
-                  <tr key={member.id} className="group hover:bg-[var(--color-primary-50)]/30">
-                    {/* Employee name - clickable */}
+                  <tr key={member.id} className="group">
+                    {/* Employee name - opens range modal */}
                     <td className="sticky left-0 z-10 bg-white group-hover:bg-[var(--color-primary-50)] border-b border-r-2 border-[var(--color-border)] px-4 py-2 transition-colors">
                       <button
-                        onClick={() => openAssignModal(member.id)}
+                        onClick={() => openRangeModal(member.id)}
                         className="w-full text-left"
-                        title="Schicht zuweisen"
+                        title="Schichten per Von-Bis zuweisen"
                       >
                         <div className="flex items-center gap-3">
                           <div className="h-8 w-8 rounded-full bg-[var(--color-primary-100)] flex items-center justify-center flex-shrink-0">
@@ -374,7 +413,7 @@ export default function PersonalplanungPage() {
                       </button>
                     </td>
 
-                    {/* Day cells */}
+                    {/* Day cells - each clickable */}
                     {Array.from({ length: daysInMonth }).map((_, i) => {
                       const day = i + 1;
                       const dateStr = formatDateStr(currentYear, currentMonth, day);
@@ -421,7 +460,9 @@ export default function PersonalplanungPage() {
                       return (
                         <td
                           key={day}
-                          className={`border-b border-r border-[var(--color-border)] text-center h-10 ${cellBgClass} transition-colors`}
+                          onClick={() => openCellModal(member.id, dateStr)}
+                          className={`border-b border-r border-[var(--color-border)] text-center h-10 cursor-pointer hover:ring-2 hover:ring-inset hover:ring-[var(--color-primary-400)] transition-all ${cellBgClass}`}
+                          title={`${member.firstName} — ${new Date(dateStr).toLocaleDateString("de-DE", { weekday: "short", day: "numeric", month: "short" })}`}
                         >
                           {cellContent}
                         </td>
@@ -445,10 +486,16 @@ export default function PersonalplanungPage() {
                   <CalendarRange className="h-5 w-5 text-[var(--color-primary-600)]" />
                 </div>
                 <div>
-                  <h2 className="text-lg font-bold text-[var(--color-text-primary)]">Schicht zuweisen</h2>
+                  <h2 className="text-lg font-bold text-[var(--color-text-primary)]">
+                    {modalMode === "single" ? "Schicht eintragen" : "Schichten zuweisen"}
+                  </h2>
                   <p className="text-xs text-[var(--color-text-muted)]">
-                    {allUsers.find((u) => u.id === selectedEmployee)?.firstName}{" "}
-                    {allUsers.find((u) => u.id === selectedEmployee)?.lastName}
+                    {selectedEmployeeData?.firstName} {selectedEmployeeData?.lastName}
+                    {modalMode === "single" && (
+                      <span className="ml-1">
+                        — {new Date(assignStart).toLocaleDateString("de-DE", { weekday: "long", day: "numeric", month: "long" })}
+                      </span>
+                    )}
                   </p>
                 </div>
               </div>
@@ -464,11 +511,47 @@ export default function PersonalplanungPage() {
               <div className="bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-3 rounded-lg mb-4">{formError}</div>
             )}
 
+            {/* Existing entry info for single mode */}
+            {modalMode === "single" && (() => {
+              const existing = scheduleMap[selectedEmployee]?.[assignStart];
+              if (!existing) return null;
+              if (existing.type === "shift" && existing.shiftType) {
+                const cfg = shiftConfig[existing.shiftType];
+                return (
+                  <div className={`flex items-center justify-between mb-4 px-4 py-3 rounded-lg border ${cfg.bg}`}>
+                    <div className="flex items-center gap-2">
+                      {(() => { const Icon = cfg.icon; return <Icon className={`h-4 w-4 ${cfg.color}`} />; })()}
+                      <span className={`text-sm font-medium ${cfg.color}`}>Aktuell: {cfg.label}</span>
+                    </div>
+                    <button
+                      onClick={() => {
+                        if (existing.shiftId) deleteShift(existing.shiftId);
+                        setShowAssignModal(false);
+                      }}
+                      className="flex items-center gap-1 px-2 py-1 text-xs text-red-600 hover:bg-red-100 rounded transition-colors"
+                    >
+                      <Trash2 className="h-3 w-3" />
+                      Entfernen
+                    </button>
+                  </div>
+                );
+              }
+              if (existing.type === "vacation") {
+                return (
+                  <div className="flex items-center gap-2 mb-4 px-4 py-3 rounded-lg bg-green-50 border border-green-200">
+                    <Palmtree className="h-4 w-4 text-green-600" />
+                    <span className="text-sm font-medium text-green-700">Genehmigter Urlaub an diesem Tag</span>
+                  </div>
+                );
+              }
+              return null;
+            })()}
+
             <div className="space-y-4">
               {/* Shift type selection */}
               <div>
                 <label className="block text-sm font-medium text-[var(--color-text-primary)] mb-2">Schichttyp</label>
-                <div className="grid grid-cols-4 gap-2">
+                <div className="grid grid-cols-5 gap-2">
                   {ASSIGNABLE_SHIFTS.map((type) => {
                     const cfg = shiftConfig[type];
                     const Icon = cfg.icon;
@@ -476,13 +559,13 @@ export default function PersonalplanungPage() {
                       <button
                         key={type}
                         onClick={() => handleShiftTypeChange(type)}
-                        className={`flex flex-col items-center gap-1 p-3 rounded-lg border-2 transition-colors ${
+                        className={`flex flex-col items-center gap-1 p-2.5 rounded-lg border-2 transition-colors ${
                           assignType === type
                             ? `${cfg.bg} border-current ${cfg.color}`
                             : "border-[var(--color-border)] hover:border-[var(--color-primary-300)]"
                         }`}
                       >
-                        <Icon className={`h-5 w-5 ${assignType === type ? cfg.color : "text-[var(--color-text-muted)]"}`} />
+                        <Icon className={`h-4 w-4 ${assignType === type ? cfg.color : "text-[var(--color-text-muted)]"}`} />
                         <span className="text-[10px] font-medium leading-tight text-center">{cfg.label}</span>
                       </button>
                     );
@@ -490,55 +573,62 @@ export default function PersonalplanungPage() {
                 </div>
               </div>
 
-              {/* Date range */}
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-[var(--color-text-primary)] mb-1.5">Von</label>
-                  <input
-                    type="date"
-                    value={assignStart}
-                    onChange={(e) => setAssignStart(e.target.value)}
-                    className="w-full px-3 py-2.5 border border-[var(--color-border)] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary-500)]"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-[var(--color-text-primary)] mb-1.5">Bis</label>
-                  <input
-                    type="date"
-                    value={assignEnd}
-                    onChange={(e) => setAssignEnd(e.target.value)}
-                    className="w-full px-3 py-2.5 border border-[var(--color-border)] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary-500)]"
-                  />
-                </div>
-              </div>
+              {/* Date range (only in range mode) */}
+              {modalMode === "range" && (
+                <>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-[var(--color-text-primary)] mb-1.5">Von</label>
+                      <input
+                        type="date"
+                        value={assignStart}
+                        onChange={(e) => setAssignStart(e.target.value)}
+                        className="w-full px-3 py-2.5 border border-[var(--color-border)] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary-500)]"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-[var(--color-text-primary)] mb-1.5">Bis</label>
+                      <input
+                        type="date"
+                        value={assignEnd}
+                        onChange={(e) => setAssignEnd(e.target.value)}
+                        className="w-full px-3 py-2.5 border border-[var(--color-border)] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary-500)]"
+                      />
+                    </div>
+                  </div>
 
-              {/* Preview: how many days */}
-              {assignStart && assignEnd && new Date(assignStart) <= new Date(assignEnd) && (
+                  {/* Include weekends checkbox */}
+                  <label className="flex items-center gap-3 cursor-pointer bg-[var(--color-surface-tertiary)] rounded-lg px-4 py-3">
+                    <input
+                      type="checkbox"
+                      checked={includeWeekends}
+                      onChange={(e) => setIncludeWeekends(e.target.checked)}
+                      className="h-4 w-4 rounded border-[var(--color-border)] text-[var(--color-primary-600)] focus:ring-[var(--color-primary-500)]"
+                    />
+                    <div>
+                      <span className="text-sm font-medium text-[var(--color-text-primary)]">Wochenenden einbeziehen</span>
+                      <p className="text-xs text-[var(--color-text-muted)]">Auch Samstage und Sonntage mit Schicht belegen</p>
+                    </div>
+                  </label>
+                </>
+              )}
+
+              {/* Preview */}
+              {previewDays > 0 && (
                 <div className="bg-[var(--color-surface-tertiary)] rounded-lg px-4 py-3 text-sm text-[var(--color-text-secondary)]">
-                  {(() => {
-                    let count = 0;
-                    const s = new Date(assignStart);
-                    const e = new Date(assignEnd);
-                    for (let d = new Date(s); d <= e; d.setDate(d.getDate() + 1)) {
-                      const dow = d.getDay();
-                      if ((assignType === "frueh" || assignType === "spaet" || assignType === "nacht") && (dow === 0 || dow === 6)) continue;
-                      count++;
-                    }
-                    return (
-                      <span>
-                        <span className="font-semibold text-[var(--color-text-primary)]">{count} Tage</span>
-                        {" "}werden mit <span className="font-semibold text-[var(--color-text-primary)]">{shiftConfig[assignType].label}</span> belegt
-                        {(assignType === "frueh" || assignType === "spaet" || assignType === "nacht") && (
-                          <span className="text-xs text-[var(--color-text-muted)] ml-1">(Sa/So übersprungen)</span>
-                        )}
-                      </span>
-                    );
-                  })()}
+                  <span className="font-semibold text-[var(--color-text-primary)]">{previewDays} Tag{previewDays !== 1 ? "e" : ""}</span>
+                  {" "}mit <span className="font-semibold text-[var(--color-text-primary)]">{shiftConfig[assignType].label}</span>
+                  {modalMode === "range" && !includeWeekends && TIME_SHIFTS.includes(assignType) && (
+                    <span className="text-xs text-[var(--color-text-muted)] ml-1">(Sa/So übersprungen)</span>
+                  )}
+                  {modalMode === "range" && includeWeekends && (
+                    <span className="text-xs text-[var(--color-text-muted)] ml-1">(inkl. Wochenenden)</span>
+                  )}
                 </div>
               )}
 
               {/* Time for work shifts */}
-              {(assignType === "frueh" || assignType === "spaet" || assignType === "nacht") && (
+              {TIME_SHIFTS.includes(assignType) && (
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-[var(--color-text-primary)] mb-1.5">Uhrzeit von</label>
@@ -574,7 +664,7 @@ export default function PersonalplanungPage() {
                   className="flex-1 px-4 py-2.5 bg-[var(--color-primary-600)] hover:bg-[var(--color-primary-700)] text-white rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2"
                 >
                   <Check className="h-4 w-4" />
-                  Schichten zuweisen
+                  {modalMode === "single" ? "Eintragen" : "Zuweisen"}
                 </button>
               </div>
             </div>
@@ -586,7 +676,6 @@ export default function PersonalplanungPage() {
       {vacationConflicts.length > 0 && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[60] p-4">
           <div className="bg-white rounded-2xl w-full max-w-md p-0 overflow-hidden shadow-2xl">
-            {/* Red warning header */}
             <div className="bg-red-600 px-6 py-5 flex items-center gap-4">
               <div className="h-14 w-14 rounded-full bg-white/20 flex items-center justify-center flex-shrink-0">
                 <AlertTriangle className="h-8 w-8 text-white" />
@@ -599,7 +688,6 @@ export default function PersonalplanungPage() {
               </div>
             </div>
 
-            {/* Content */}
             <div className="px-6 py-5">
               <div className="bg-red-50 border-2 border-red-200 rounded-xl p-4 mb-4">
                 <p className="text-red-800 font-semibold text-sm mb-2">

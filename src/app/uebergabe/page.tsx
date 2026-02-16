@@ -13,6 +13,7 @@ import {
   Moon,
   Sunset,
   Briefcase,
+  Thermometer,
 } from "lucide-react";
 import { ShiftType, SHIFT_TYPES } from "@/types";
 import { sanitizeAndLimit } from "@/lib/sanitize";
@@ -25,6 +26,7 @@ const shiftTypeLabels: Record<ShiftType, { label: string; icon: typeof Sun; colo
   feiertag: { label: "Feiertag", icon: Sun, color: "text-red-500" },
   urlaub: { label: "Urlaub", icon: Sun, color: "text-green-500" },
   sonderurlaub: { label: "Sonderurlaub", icon: Briefcase, color: "text-teal-500" },
+  krank: { label: "Krank", icon: Thermometer, color: "text-pink-500" },
 };
 
 export default function UebergabePage() {

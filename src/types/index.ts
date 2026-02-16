@@ -71,7 +71,7 @@ export interface ChatMessage {
   read: boolean;
 }
 
-export const SHIFT_TYPES = ["frueh", "spaet", "nacht", "frei", "feiertag", "urlaub", "sonderurlaub"] as const;
+export const SHIFT_TYPES = ["frueh", "spaet", "nacht", "frei", "feiertag", "urlaub", "sonderurlaub", "krank"] as const;
 export type ShiftType = (typeof SHIFT_TYPES)[number];
 
 export interface ShiftEntry {

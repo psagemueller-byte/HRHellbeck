@@ -18,6 +18,7 @@ import {
   Trash2,
   Briefcase,
   AlertTriangle,
+  Thermometer,
 } from "lucide-react";
 import { ShiftType, SHIFT_TYPES } from "@/types";
 
@@ -29,6 +30,7 @@ const shiftLabels: Record<ShiftType, { label: string; short: string; color: stri
   feiertag: { label: "Feiertag", short: "FT", color: "text-red-600", bg: "bg-red-100 border-red-300", icon: Star },
   urlaub: { label: "Urlaub", short: "U", color: "text-green-700", bg: "bg-green-100 border-green-300", icon: Palmtree },
   sonderurlaub: { label: "Sonderurlaub", short: "SU", color: "text-teal-700", bg: "bg-teal-100 border-teal-300", icon: Briefcase },
+  krank: { label: "Krank", short: "K", color: "text-pink-700", bg: "bg-pink-100 border-pink-300", icon: Thermometer },
 };
 
 const WEEKDAYS = ["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"];
@@ -350,7 +352,7 @@ export default function KalenderPage() {
               <div>
                 <label className="block text-sm font-medium text-[var(--color-text-primary)] mb-2">Typ</label>
                 <div className="grid grid-cols-3 gap-2">
-                  {(["frueh", "spaet", "nacht", "frei", "urlaub", "sonderurlaub"] as ShiftType[]).map((type) => {
+                  {(["frueh", "spaet", "nacht", "frei", "krank", "urlaub", "sonderurlaub"] as ShiftType[]).map((type) => {
                     const config = shiftLabels[type]; const Icon = config.icon;
                     return (
                       <button key={type} onClick={() => {
