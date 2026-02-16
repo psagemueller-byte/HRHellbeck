@@ -505,15 +505,10 @@ export default function PersonalplanungPage() {
                 </div>
                 <div>
                   <h2 className="text-lg font-bold text-[var(--color-text-primary)]">
-                    {modalMode === "single" ? "Schicht eintragen" : "Schichten zuweisen"}
+                    {assignStart === assignEnd ? "Schicht eintragen" : "Schichten zuweisen"}
                   </h2>
                   <p className="text-xs text-[var(--color-text-muted)]">
                     {selectedEmployeeData?.firstName} {selectedEmployeeData?.lastName}
-                    {modalMode === "single" && (
-                      <span className="ml-1">
-                        — {new Date(assignStart).toLocaleDateString("de-DE", { weekday: "long", day: "numeric", month: "long" })}
-                      </span>
-                    )}
                   </p>
                 </div>
               </div>
@@ -591,55 +586,51 @@ export default function PersonalplanungPage() {
                 </div>
               </div>
 
-              {/* Date range (only in range mode) */}
-              {modalMode === "range" && (
-                <>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-[var(--color-text-primary)] mb-1.5">Von</label>
-                      <input
-                        type="date"
-                        value={assignStart}
-                        onChange={(e) => setAssignStart(e.target.value)}
-                        className="w-full px-3 py-2.5 border border-[var(--color-border)] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary-500)]"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-[var(--color-text-primary)] mb-1.5">Bis</label>
-                      <input
-                        type="date"
-                        value={assignEnd}
-                        onChange={(e) => setAssignEnd(e.target.value)}
-                        className="w-full px-3 py-2.5 border border-[var(--color-border)] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary-500)]"
-                      />
-                    </div>
-                  </div>
+              {/* Date range */}
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-[var(--color-text-primary)] mb-1.5">Von</label>
+                  <input
+                    type="date"
+                    value={assignStart}
+                    onChange={(e) => setAssignStart(e.target.value)}
+                    className="w-full px-3 py-2.5 border border-[var(--color-border)] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary-500)]"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-[var(--color-text-primary)] mb-1.5">Bis</label>
+                  <input
+                    type="date"
+                    value={assignEnd}
+                    onChange={(e) => setAssignEnd(e.target.value)}
+                    className="w-full px-3 py-2.5 border border-[var(--color-border)] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary-500)]"
+                  />
+                </div>
+              </div>
 
-                  {/* Include weekends checkbox */}
-                  <label className="flex items-center gap-3 cursor-pointer bg-[var(--color-surface-tertiary)] rounded-lg px-4 py-3">
-                    <input
-                      type="checkbox"
-                      checked={includeWeekends}
-                      onChange={(e) => setIncludeWeekends(e.target.checked)}
-                      className="h-4 w-4 rounded border-[var(--color-border)] text-[var(--color-primary-600)] focus:ring-[var(--color-primary-500)]"
-                    />
-                    <div>
-                      <span className="text-sm font-medium text-[var(--color-text-primary)]">Wochenenden einbeziehen</span>
-                      <p className="text-xs text-[var(--color-text-muted)]">Auch Samstage und Sonntage mit Schicht belegen</p>
-                    </div>
-                  </label>
-                </>
-              )}
+              {/* Include weekends checkbox */}
+              <label className="flex items-center gap-3 cursor-pointer bg-[var(--color-surface-tertiary)] rounded-lg px-4 py-3">
+                <input
+                  type="checkbox"
+                  checked={includeWeekends}
+                  onChange={(e) => setIncludeWeekends(e.target.checked)}
+                  className="h-4 w-4 rounded border-[var(--color-border)] text-[var(--color-primary-600)] focus:ring-[var(--color-primary-500)]"
+                />
+                <div>
+                  <span className="text-sm font-medium text-[var(--color-text-primary)]">Wochenenden einbeziehen</span>
+                  <p className="text-xs text-[var(--color-text-muted)]">Auch Samstage und Sonntage mit Schicht belegen</p>
+                </div>
+              </label>
 
               {/* Preview */}
               {previewDays > 0 && (
                 <div className="bg-[var(--color-surface-tertiary)] rounded-lg px-4 py-3 text-sm text-[var(--color-text-secondary)]">
                   <span className="font-semibold text-[var(--color-text-primary)]">{previewDays} Tag{previewDays !== 1 ? "e" : ""}</span>
                   {" "}mit <span className="font-semibold text-[var(--color-text-primary)]">{shiftConfig[assignType].label}</span>
-                  {modalMode === "range" && !includeWeekends && TIME_SHIFTS.includes(assignType) && (
+                  {!includeWeekends && TIME_SHIFTS.includes(assignType) && assignStart !== assignEnd && (
                     <span className="text-xs text-[var(--color-text-muted)] ml-1">(Sa/So übersprungen)</span>
                   )}
-                  {modalMode === "range" && includeWeekends && (
+                  {includeWeekends && assignStart !== assignEnd && (
                     <span className="text-xs text-[var(--color-text-muted)] ml-1">(inkl. Wochenenden)</span>
                   )}
                 </div>
@@ -682,7 +673,7 @@ export default function PersonalplanungPage() {
                   className="flex-1 px-4 py-2.5 bg-[var(--color-primary-600)] hover:bg-[var(--color-primary-700)] text-white rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2"
                 >
                   <Check className="h-4 w-4" />
-                  {modalMode === "single" ? "Eintragen" : "Zuweisen"}
+                  {assignStart === assignEnd ? "Eintragen" : "Zuweisen"}
                 </button>
               </div>
             </div>
