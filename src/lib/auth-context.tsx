@@ -1,9 +1,10 @@
 "use client";
 
 import { createContext, useContext, useState, useCallback, useRef, ReactNode } from "react";
-import { User, UserRole, USER_ROLES, NewsArticle, VacationRequest, ChatMessage, Department, ShiftEntry, ShiftType, SHIFT_TYPES, DisruptionReport, DisruptionCategory, DISRUPTION_CATEGORIES, HandoverProtocol } from "@/types";
+import { User, UserRole, USER_ROLES, NewsArticle, VacationRequest, VacationBalance, VacationCancelRequest, ChatMessage, Department, ShiftEntry, ShiftType, SHIFT_TYPES, DisruptionReport, DisruptionCategory, DISRUPTION_CATEGORIES, HandoverProtocol } from "@/types";
 import { mockUsers, mockNews, mockVacationRequests, mockChatMessages, mockDepartments, mockShiftEntries, mockDisruptionReports, mockHandoverProtocols } from "@/lib/mock-data";
 import { isValidEmail, sanitizeString } from "@/lib/sanitize";
+import { calculateWorkingDays } from "@/lib/holidays";
 
 const MAX_LOGIN_ATTEMPTS = 5;
 const LOCKOUT_DURATION_MS = 60_000;
@@ -36,6 +37,13 @@ interface AuthContextType {
   approveVacation: (requestId: string) => void;
   rejectVacation: (requestId: string) => void;
   canApproveVacation: (request: VacationRequest) => boolean;
+  getVacationBalance: (userId: string) => VacationBalance;
+  updateUserVacationDays: (userId: string, days: number) => void;
+  // Vacation cancel requests
+  vacationCancelRequests: VacationCancelRequest[];
+  requestVacationCancel: (vacationId: string, reason: string) => void;
+  approveVacationCancel: (cancelId: string) => void;
+  rejectVacationCancel: (cancelId: string) => void;
   sendMessage: (receiverId: string, content: string) => void;
   markMessagesRead: (partnerId: string) => void;
   getConversations: () => { partnerId: string; partner: User; lastMessage: ChatMessage; unreadCount: number }[];
@@ -71,6 +79,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [departments, setDepartments] = useState<Department[]>(mockDepartments);
   const [news, setNews] = useState<NewsArticle[]>(mockNews);
   const [vacationRequests, setVacationRequests] = useState<VacationRequest[]>(mockVacationRequests);
+  const [vacationCancelRequests, setVacationCancelRequests] = useState<VacationCancelRequest[]>([]);
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>(mockChatMessages);
   const [shiftEntries, setShiftEntries] = useState<ShiftEntry[]>(mockShiftEntries);
   const [disruptionReports, setDisruptionReports] = useState<DisruptionReport[]>(mockDisruptionReports);
@@ -336,6 +345,96 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     );
   }, [user]);
 
+  // --- Vacation Balance (dynamic) ---
+  const getVacationBalance = useCallback((userId: string): VacationBalance => {
+    const targetUser = allUsers.find((u) => u.id === userId);
+    const total = targetUser?.totalVacationDays ?? 30;
+    const currentYear = new Date().getFullYear();
+
+    const userRequests = vacationRequests.filter(
+      (r) => r.userId === userId && r.type !== "unbezahlt"
+    );
+
+    const used = userRequests
+      .filter((r) => r.status === "genehmigt" && new Date(r.endDate) < new Date())
+      .reduce((sum, r) => sum + calculateWorkingDays(r.startDate, r.endDate), 0);
+
+    const planned = userRequests
+      .filter((r) => (r.status === "genehmigt" || r.status === "ausstehend") && new Date(r.endDate) >= new Date())
+      .reduce((sum, r) => sum + calculateWorkingDays(r.startDate, r.endDate), 0);
+
+    return {
+      total,
+      used,
+      planned,
+      remaining: Math.max(0, total - used - planned),
+    };
+  }, [allUsers, vacationRequests]);
+
+  const updateUserVacationDays = useCallback((userId: string, days: number) => {
+    const clampedDays = Math.max(0, Math.min(365, Math.round(days)));
+    setAllUsers((users) =>
+      users.map((u) => (u.id === userId ? { ...u, totalVacationDays: clampedDays } : u))
+    );
+  }, []);
+
+  // --- Vacation Cancel Requests ---
+  const requestVacationCancel = useCallback((vacationId: string, reason: string) => {
+    if (!user) return;
+    // Only allow cancellation of approved vacations
+    const vacation = vacationRequests.find((v) => v.id === vacationId);
+    if (!vacation || vacation.status !== "genehmigt" || vacation.userId !== user.id) return;
+    // Check if already requested
+    const alreadyRequested = vacationCancelRequests.some(
+      (cr) => cr.vacationId === vacationId && cr.status === "ausstehend"
+    );
+    if (alreadyRequested) return;
+
+    const newRequest: VacationCancelRequest = {
+      id: `cancel-${Date.now()}`,
+      vacationId,
+      userId: user.id,
+      reason: sanitizeString(reason).slice(0, 500),
+      status: "ausstehend",
+      createdAt: new Date().toISOString(),
+    };
+    setVacationCancelRequests((prev) => [newRequest, ...prev]);
+  }, [user, vacationRequests, vacationCancelRequests]);
+
+  const approveVacationCancel = useCallback((cancelId: string) => {
+    if (!user) return;
+    const cancelReq = vacationCancelRequests.find((cr) => cr.id === cancelId);
+    if (!cancelReq || cancelReq.status !== "ausstehend") return;
+
+    // Mark cancel request as approved
+    setVacationCancelRequests((prev) =>
+      prev.map((cr) =>
+        cr.id === cancelId
+          ? { ...cr, status: "genehmigt" as const, decidedBy: user.id, decidedAt: new Date().toISOString().split("T")[0] }
+          : cr
+      )
+    );
+    // Remove the vacation request (set status to abgelehnt/storniert)
+    setVacationRequests((prev) =>
+      prev.map((v) =>
+        v.id === cancelReq.vacationId
+          ? { ...v, status: "abgelehnt" as const, approvedBy: user.id, approvedAt: new Date().toISOString().split("T")[0] }
+          : v
+      )
+    );
+  }, [user, vacationCancelRequests]);
+
+  const rejectVacationCancel = useCallback((cancelId: string) => {
+    if (!user) return;
+    setVacationCancelRequests((prev) =>
+      prev.map((cr) =>
+        cr.id === cancelId
+          ? { ...cr, status: "abgelehnt" as const, decidedBy: user.id, decidedAt: new Date().toISOString().split("T")[0] }
+          : cr
+      )
+    );
+  }, [user]);
+
   // --- Chat ---
   const sendMessage = useCallback((receiverId: string, content: string) => {
     if (!user) return;
@@ -522,6 +621,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         approveVacation,
         rejectVacation,
         canApproveVacation,
+        getVacationBalance,
+        updateUserVacationDays,
+        vacationCancelRequests,
+        requestVacationCancel,
+        approveVacationCancel,
+        rejectVacationCancel,
         sendMessage,
         markMessagesRead,
         getConversations,

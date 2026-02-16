@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useAuth } from "@/lib/auth-context";
-import { mockVacationBalance } from "@/lib/mock-data";
+import { calculateWorkingDays } from "@/lib/holidays";
 import { sanitizeAndLimit, isValidDate, isValidVacationType } from "@/lib/sanitize";
 import {
   Palmtree,
@@ -17,6 +17,8 @@ import {
   Info,
   Check,
   Ban,
+  RotateCcw,
+  AlertTriangle,
 } from "lucide-react";
 
 const statusConfig: Record<
@@ -57,18 +59,6 @@ function formatDate(dateStr: string) {
   });
 }
 
-function calculateBusinessDays(start: string, end: string): number {
-  let count = 0;
-  const current = new Date(start);
-  const endDate = new Date(end);
-  while (current <= endDate) {
-    const day = current.getDay();
-    if (day !== 0 && day !== 6) count++;
-    current.setDate(current.getDate() + 1);
-  }
-  return count;
-}
-
 export default function VacationPage() {
   const {
     user,
@@ -78,8 +68,13 @@ export default function VacationPage() {
     approveVacation,
     rejectVacation,
     canApproveVacation,
+    getVacationBalance,
+    vacationCancelRequests,
+    requestVacationCancel,
+    approveVacationCancel,
+    rejectVacationCancel,
   } = useAuth();
-  const balance = mockVacationBalance;
+  const balance = user ? getVacationBalance(user.id) : { total: 30, used: 0, planned: 0, remaining: 30 };
   const [showForm, setShowForm] = useState(false);
   const [activeTab, setActiveTab] = useState<"mine" | "approvals">("mine");
   const [formData, setFormData] = useState({
@@ -89,6 +84,10 @@ export default function VacationPage() {
     reason: "",
   });
   const [formError, setFormError] = useState("");
+  // Cancel request state
+  const [cancelModal, setCancelModal] = useState<{ vacationId: string } | null>(null);
+  const [cancelReason, setCancelReason] = useState("");
+  const [cancelError, setCancelError] = useState("");
 
   const myRequests = vacationRequests.filter((r) => r.userId === user?.id);
   const pendingApprovals = vacationRequests.filter(
@@ -99,6 +98,13 @@ export default function VacationPage() {
   const allTeamRequests = vacationRequests.filter(
     (r) => canApproveVacation(r) && r.userId !== user?.id
   );
+  // Pending cancel requests for manager
+  const pendingCancelRequests = vacationCancelRequests.filter((cr) => {
+    if (cr.status !== "ausstehend") return false;
+    const vacation = vacationRequests.find((v) => v.id === cr.vacationId);
+    if (!vacation) return false;
+    return canApproveVacation(vacation) && vacation.userId !== user?.id;
+  });
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -130,14 +136,14 @@ export default function VacationPage() {
       return;
     }
 
-    const days = calculateBusinessDays(formData.startDate, formData.endDate);
+    const days = calculateWorkingDays(formData.startDate, formData.endDate);
 
     if (days <= 0) {
       setFormError("Der gewählte Zeitraum enthält keine Arbeitstage.");
       return;
     }
 
-    if (days > balance.remaining) {
+    if (formData.type !== "unbezahlt" && days > balance.remaining) {
       setFormError(
         `Nicht genügend Resturlaub. Du hast noch ${balance.remaining} Tage, beantragst aber ${days} Tage.`
       );
@@ -161,10 +167,36 @@ export default function VacationPage() {
     setFormData({ startDate: "", endDate: "", type: "urlaub", reason: "" });
   };
 
+  const handleCancelRequest = () => {
+    setCancelError("");
+    if (!cancelModal) return;
+    const trimmedReason = cancelReason.trim();
+    if (!trimmedReason) {
+      setCancelError("Bitte einen Grund für die Stornierung angeben.");
+      return;
+    }
+    requestVacationCancel(cancelModal.vacationId, sanitizeAndLimit(trimmedReason, 500));
+    setCancelModal(null);
+    setCancelReason("");
+  };
+
   const getUserName = (userId: string) => {
     const u = allUsers.find((u) => u.id === userId);
     return u ? `${u.firstName} ${u.lastName}` : "Unbekannt";
   };
+
+  // Check if a vacation has a pending cancel request
+  const hasPendingCancel = (vacationId: string) => {
+    return vacationCancelRequests.some(
+      (cr) => cr.vacationId === vacationId && cr.status === "ausstehend"
+    );
+  };
+
+  // Working days preview in form
+  const previewDays =
+    formData.startDate && formData.endDate && new Date(formData.startDate) <= new Date(formData.endDate)
+      ? calculateWorkingDays(formData.startDate, formData.endDate)
+      : 0;
 
   return (
     <div className="max-w-6xl mx-auto">
@@ -261,13 +293,13 @@ export default function VacationPage() {
             <div
               className="bg-[var(--color-primary-600)] transition-all"
               style={{
-                width: `${(balance.used / balance.total) * 100}%`,
+                width: `${balance.total > 0 ? (balance.used / balance.total) * 100 : 0}%`,
               }}
             />
             <div
               className="bg-[var(--color-primary-300)] transition-all"
               style={{
-                width: `${(balance.planned / balance.total) * 100}%`,
+                width: `${balance.total > 0 ? (balance.planned / balance.total) * 100 : 0}%`,
               }}
             />
           </div>
@@ -318,12 +350,12 @@ export default function VacationPage() {
                 </label>
                 <select
                   value={formData.type}
-                  onChange={(e) =>
-                    setFormData({
-                      ...formData,
-                      type: e.target.value as typeof formData.type,
-                    })
-                  }
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    if (val === "urlaub" || val === "sonderurlaub" || val === "unbezahlt") {
+                      setFormData({ ...formData, type: val });
+                    }
+                  }}
                   className="w-full px-3 py-2.5 border border-[var(--color-border)] rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[var(--color-primary-500)]"
                 >
                   <option value="urlaub">Erholungsurlaub</option>
@@ -361,15 +393,24 @@ export default function VacationPage() {
                 </div>
               </div>
 
-              {formData.startDate && formData.endDate && (
+              {previewDays > 0 && (
                 <div className="bg-[var(--color-surface-tertiary)] rounded-lg px-4 py-3 text-sm text-[var(--color-text-secondary)]">
-                  Arbeitstage:{" "}
-                  <span className="font-semibold text-[var(--color-text-primary)]">
-                    {calculateBusinessDays(
-                      formData.startDate,
-                      formData.endDate
+                  <div className="flex items-center justify-between">
+                    <span>
+                      Arbeitstage:{" "}
+                      <span className="font-semibold text-[var(--color-text-primary)]">
+                        {previewDays}
+                      </span>
+                    </span>
+                    {formData.type !== "unbezahlt" && (
+                      <span className="text-xs">
+                        Resturlaub: {balance.remaining} Tage
+                      </span>
                     )}
-                  </span>
+                  </div>
+                  <p className="text-xs text-[var(--color-text-muted)] mt-1">
+                    Sa/So + Feiertage werden automatisch abgezogen
+                  </p>
                 </div>
               )}
 
@@ -409,6 +450,65 @@ export default function VacationPage() {
         </div>
       )}
 
+      {/* Cancel request modal */}
+      {cancelModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl w-full max-w-md p-6">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="h-10 w-10 rounded-lg bg-amber-100 flex items-center justify-center">
+                <RotateCcw className="h-5 w-5 text-amber-600" />
+              </div>
+              <h2 className="text-lg font-bold text-[var(--color-text-primary)]">
+                Stornierung anfragen
+              </h2>
+            </div>
+            <p className="text-sm text-[var(--color-text-secondary)] mb-4">
+              Du kannst genehmigten Urlaub nicht direkt löschen. Dein Vorgesetzter muss der Stornierung zustimmen.
+            </p>
+
+            {cancelError && (
+              <div className="bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-3 rounded-lg mb-4">
+                {cancelError}
+              </div>
+            )}
+
+            <div>
+              <label className="block text-sm font-medium text-[var(--color-text-primary)] mb-1.5">
+                Grund der Stornierung *
+              </label>
+              <textarea
+                value={cancelReason}
+                onChange={(e) => setCancelReason(e.target.value)}
+                placeholder="Warum möchtest du den Urlaub stornieren?"
+                rows={3}
+                maxLength={500}
+                className="w-full px-3 py-2.5 border border-[var(--color-border)] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary-500)] resize-none"
+              />
+            </div>
+
+            <div className="flex gap-3 mt-4">
+              <button
+                onClick={() => {
+                  setCancelModal(null);
+                  setCancelReason("");
+                  setCancelError("");
+                }}
+                className="flex-1 px-4 py-2.5 border border-[var(--color-border)] rounded-lg text-sm font-medium text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-tertiary)] transition-colors"
+              >
+                Abbrechen
+              </button>
+              <button
+                onClick={handleCancelRequest}
+                className="flex-1 px-4 py-2.5 bg-amber-500 hover:bg-amber-600 text-white rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2"
+              >
+                <RotateCcw className="h-4 w-4" />
+                Stornierung anfragen
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Tab navigation */}
       <div className="flex gap-1 mb-6 bg-[var(--color-surface-tertiary)] p-1 rounded-lg w-fit">
         <button
@@ -431,9 +531,9 @@ export default function VacationPage() {
             }`}
           >
             Genehmigungen
-            {pendingApprovals.length > 0 && (
+            {(pendingApprovals.length + pendingCancelRequests.length) > 0 && (
               <span className="bg-amber-500 text-white text-xs font-bold px-1.5 py-0.5 rounded-full min-w-[20px] text-center">
-                {pendingApprovals.length}
+                {pendingApprovals.length + pendingCancelRequests.length}
               </span>
             )}
           </button>
@@ -457,6 +557,7 @@ export default function VacationPage() {
               myRequests.map((req) => {
                 const status = statusConfig[req.status];
                 const StatusIcon = status.icon;
+                const pendingCancel = hasPendingCancel(req.id);
                 return (
                   <div
                     key={req.id}
@@ -468,7 +569,7 @@ export default function VacationPage() {
                       <StatusIcon className={`h-5 w-5 ${status.color}`} />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 flex-wrap">
                         <span className="text-sm font-medium text-[var(--color-text-primary)]">
                           {formatDate(req.startDate)} — {formatDate(req.endDate)}
                         </span>
@@ -477,6 +578,12 @@ export default function VacationPage() {
                         >
                           {status.label}
                         </span>
+                        {pendingCancel && (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-orange-50 text-orange-600">
+                            <RotateCcw className="h-3 w-3" />
+                            Stornierung angefragt
+                          </span>
+                        )}
                       </div>
                       <p className="text-xs text-[var(--color-text-muted)] mt-0.5">
                         {typeLabels[req.type]} &middot; {req.days} Tag
@@ -490,9 +597,21 @@ export default function VacationPage() {
                         </p>
                       )}
                     </div>
-                    <span className="text-xs text-[var(--color-text-muted)] flex-shrink-0">
-                      Beantragt am {formatDate(req.createdAt)}
-                    </span>
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                      {req.status === "genehmigt" && !pendingCancel && (
+                        <button
+                          onClick={() => setCancelModal({ vacationId: req.id })}
+                          className="flex items-center gap-1.5 px-3 py-2 bg-amber-50 text-amber-700 hover:bg-amber-100 rounded-lg text-xs font-medium transition-colors"
+                          title="Stornierung anfragen"
+                        >
+                          <RotateCcw className="h-3.5 w-3.5" />
+                          Stornieren
+                        </button>
+                      )}
+                      <span className="text-xs text-[var(--color-text-muted)]">
+                        {formatDate(req.createdAt)}
+                      </span>
+                    </div>
                   </div>
                 );
               })
@@ -504,11 +623,11 @@ export default function VacationPage() {
       {/* Approval Requests */}
       {activeTab === "approvals" && (
         <div className="space-y-6">
-          {/* Pending */}
+          {/* Pending Vacation Requests */}
           <div className="bg-white rounded-xl border border-[var(--color-border)]">
             <div className="px-5 py-4 border-b border-[var(--color-border)]">
               <h2 className="text-base font-semibold text-[var(--color-text-primary)]">
-                Ausstehende Genehmigungen
+                Ausstehende Urlaubsanträge
               </h2>
               <p className="text-xs text-[var(--color-text-muted)] mt-1">
                 Urlaubsanträge deiner Teammitglieder, die auf deine Genehmigung warten
@@ -574,6 +693,72 @@ export default function VacationPage() {
               )}
             </div>
           </div>
+
+          {/* Pending Cancel Requests */}
+          {pendingCancelRequests.length > 0 && (
+            <div className="bg-white rounded-xl border border-amber-200">
+              <div className="px-5 py-4 border-b border-amber-200 bg-amber-50 rounded-t-xl">
+                <h2 className="text-base font-semibold text-amber-800 flex items-center gap-2">
+                  <AlertTriangle className="h-5 w-5" />
+                  Stornierungsanfragen ({pendingCancelRequests.length})
+                </h2>
+                <p className="text-xs text-amber-600 mt-1">
+                  Mitarbeiter möchten genehmigten Urlaub stornieren
+                </p>
+              </div>
+              <div className="divide-y divide-[var(--color-border)]">
+                {pendingCancelRequests.map((cr) => {
+                  const vacation = vacationRequests.find((v) => v.id === cr.vacationId);
+                  const reqUser = allUsers.find((u) => u.id === cr.userId);
+                  if (!vacation || !reqUser) return null;
+                  return (
+                    <div key={cr.id} className="px-5 py-4">
+                      <div className="flex items-start gap-4">
+                        <div className="h-10 w-10 rounded-full bg-orange-100 flex items-center justify-center flex-shrink-0">
+                          <RotateCcw className="h-5 w-5 text-orange-600" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className="text-sm font-semibold text-[var(--color-text-primary)]">
+                              {reqUser.firstName} {reqUser.lastName}
+                            </span>
+                            <span className="text-xs text-[var(--color-text-muted)]">
+                              {reqUser.department}
+                            </span>
+                          </div>
+                          <p className="text-sm text-[var(--color-text-primary)]">
+                            Möchte Urlaub stornieren: {formatDate(vacation.startDate)} — {formatDate(vacation.endDate)}
+                          </p>
+                          <p className="text-xs text-[var(--color-text-muted)] mt-0.5">
+                            {vacation.days} Tag{vacation.days !== 1 ? "e" : ""} &middot; {typeLabels[vacation.type]}
+                          </p>
+                          <p className="text-xs text-amber-700 mt-1 bg-amber-50 px-2 py-1 rounded inline-block">
+                            Grund: {cr.reason}
+                          </p>
+                        </div>
+                        <div className="flex gap-2 flex-shrink-0">
+                          <button
+                            onClick={() => rejectVacationCancel(cr.id)}
+                            className="flex items-center gap-1.5 px-3 py-2 bg-red-50 text-red-700 hover:bg-red-100 rounded-lg text-xs font-medium transition-colors"
+                          >
+                            <Ban className="h-3.5 w-3.5" />
+                            Ablehnen
+                          </button>
+                          <button
+                            onClick={() => approveVacationCancel(cr.id)}
+                            className="flex items-center gap-1.5 px-3 py-2 bg-green-600 text-white hover:bg-green-700 rounded-lg text-xs font-medium transition-colors"
+                          >
+                            <Check className="h-3.5 w-3.5" />
+                            Stornierung genehmigen
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
 
           {/* Already processed team requests */}
           {allTeamRequests.filter((r) => r.status !== "ausstehend").length > 0 && (

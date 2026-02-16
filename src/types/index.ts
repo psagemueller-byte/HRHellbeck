@@ -19,6 +19,7 @@ export interface User {
   startDate: string;
   managerId?: string;
   isActive: boolean;
+  totalVacationDays?: number; // Default 30
 }
 
 export interface Department {
@@ -70,7 +71,7 @@ export interface ChatMessage {
   read: boolean;
 }
 
-export const SHIFT_TYPES = ["frueh", "spaet", "nacht", "frei", "feiertag", "urlaub"] as const;
+export const SHIFT_TYPES = ["frueh", "spaet", "nacht", "frei", "feiertag", "urlaub", "sonderurlaub"] as const;
 export type ShiftType = (typeof SHIFT_TYPES)[number];
 
 export interface ShiftEntry {
@@ -117,6 +118,17 @@ export interface HandoverProtocol {
   incidents: string;
   notes: string;
   createdAt: string;
+}
+
+export interface VacationCancelRequest {
+  id: string;
+  vacationId: string;
+  userId: string;
+  reason: string;
+  status: "ausstehend" | "genehmigt" | "abgelehnt";
+  createdAt: string;
+  decidedBy?: string;
+  decidedAt?: string;
 }
 
 export interface HRToolConfig {

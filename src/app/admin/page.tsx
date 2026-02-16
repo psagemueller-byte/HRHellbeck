@@ -19,6 +19,7 @@ import {
   Trash2,
   X,
   Mail,
+  Palmtree,
 } from "lucide-react";
 import {
   sanitizeAndLimit,
@@ -75,6 +76,8 @@ export default function AdminPage() {
     addUser,
     removeUser,
     moveUserToDepartment,
+    getVacationBalance,
+    updateUserVacationDays,
   } = useAuth();
   const router = useRouter();
   const [searchQuery, setSearchQuery] = useState("");
@@ -374,6 +377,22 @@ export default function AdminPage() {
                           <option key={d.id} value={d.name}>{d.name}</option>
                         ))}
                       </select>
+
+                      <div className="flex items-center gap-1" title={`Urlaubstage: ${getVacationBalance(u.id).remaining} Rest von ${u.totalVacationDays ?? 30}`}>
+                        <Palmtree className="h-3.5 w-3.5 text-emerald-500" />
+                        <input
+                          type="number"
+                          min={0}
+                          max={365}
+                          value={u.totalVacationDays ?? 30}
+                          onChange={(e) => {
+                            const val = parseInt(e.target.value, 10);
+                            if (!isNaN(val)) updateUserVacationDays(u.id, val);
+                          }}
+                          className="w-14 px-1.5 py-1.5 border border-[var(--color-border)] rounded-lg text-xs bg-white text-center focus:outline-none focus:ring-2 focus:ring-[var(--color-primary-500)]"
+                          title="Jahresurlaub anpassen"
+                        />
+                      </div>
 
                       <select
                         value={u.role}

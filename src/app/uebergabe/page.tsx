@@ -12,6 +12,7 @@ import {
   Sun,
   Moon,
   Sunset,
+  Briefcase,
 } from "lucide-react";
 import { ShiftType, SHIFT_TYPES } from "@/types";
 import { sanitizeAndLimit } from "@/lib/sanitize";
@@ -23,6 +24,7 @@ const shiftTypeLabels: Record<ShiftType, { label: string; icon: typeof Sun; colo
   frei: { label: "Frei", icon: Sun, color: "text-gray-400" },
   feiertag: { label: "Feiertag", icon: Sun, color: "text-red-500" },
   urlaub: { label: "Urlaub", icon: Sun, color: "text-green-500" },
+  sonderurlaub: { label: "Sonderurlaub", icon: Briefcase, color: "text-teal-500" },
 };
 
 export default function UebergabePage() {
