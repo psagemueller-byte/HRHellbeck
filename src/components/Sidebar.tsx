@@ -15,8 +15,6 @@ import {
   Network,
   Newspaper,
   Calendar,
-  AlertTriangle,
-  ClipboardList,
   CalendarRange,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
@@ -35,8 +33,6 @@ const navItems: { href: string; label: string; icon: typeof LayoutDashboard; min
   { href: "/kalender", label: "Kalender", icon: Calendar, minRole: "benutzer" },
   { href: "/personalplanung", label: "Personalplanung", icon: CalendarRange, minRole: "benutzer", managerOnly: true },
   { href: "/vacation", label: "Urlaub", icon: Palmtree, minRole: "benutzer" },
-  { href: "/stoerungen", label: "Störungen", icon: AlertTriangle, minRole: "benutzer" },
-  { href: "/uebergabe", label: "Übergabe", icon: ClipboardList, minRole: "benutzer" },
   { href: "/chat", label: "Nachrichten", icon: MessageSquare, minRole: "benutzer" },
   { href: "/organigramm", label: "Organigramm", icon: Network, minRole: "admin" },
   { href: "/admin", label: "Administration", icon: Shield, minRole: "admin" },
