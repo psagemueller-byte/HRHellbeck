@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useAuth } from "@/lib/auth-context";
 import {
   User,
@@ -15,13 +15,20 @@ import {
   Download,
   Trash2,
   Shield,
+  Camera,
+  ImageOff,
 } from "lucide-react";
 import { sanitizeAndLimit, isValidPhone, isValidZipCode } from "@/lib/sanitize";
+
+const MAX_AVATAR_SIZE = 2 * 1024 * 1024; // 2 MB
+const ALLOWED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/gif", "image/webp"];
 
 export default function ProfilePage() {
   const { user, updateUser } = useAuth();
   const [editing, setEditing] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [avatarError, setAvatarError] = useState("");
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [formData, setFormData] = useState({
     phone: user?.phone || "",
     street: user?.street || "",
@@ -70,6 +77,41 @@ export default function ProfilePage() {
       country: user.country,
     });
     setEditing(false);
+  };
+
+  const handleAvatarUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setAvatarError("");
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!ALLOWED_IMAGE_TYPES.includes(file.type)) {
+      setAvatarError("Nur JPG, PNG, GIF oder WebP erlaubt.");
+      return;
+    }
+    if (file.size > MAX_AVATAR_SIZE) {
+      setAvatarError("Das Bild darf maximal 2 MB groß sein.");
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const dataUrl = ev.target?.result as string;
+      if (dataUrl && dataUrl.startsWith("data:image/")) {
+        updateUser({ avatar: dataUrl });
+        setSaved(true);
+        setTimeout(() => setSaved(false), 3000);
+      }
+    };
+    reader.readAsDataURL(file);
+
+    // Reset input so the same file can be selected again
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  };
+
+  const removeAvatar = () => {
+    updateUser({ avatar: undefined });
+    setSaved(true);
+    setTimeout(() => setSaved(false), 3000);
   };
 
   const formatDate = (dateStr: string) =>
@@ -133,11 +175,36 @@ export default function ProfilePage() {
       {/* Profile header card */}
       <div className="bg-white rounded-xl border border-[var(--color-border)] p-6 mb-6">
         <div className="flex items-center gap-5">
-          <div className="h-20 w-20 rounded-full bg-gradient-to-br from-[var(--color-primary-400)] to-[var(--color-primary-700)] flex items-center justify-center text-white text-2xl font-bold">
-            {user.firstName[0]}
-            {user.lastName[0]}
+          {/* Avatar with upload */}
+          <div className="relative group flex-shrink-0">
+            {user.avatar ? (
+              <img
+                src={user.avatar}
+                alt={`${user.firstName} ${user.lastName}`}
+                className="h-20 w-20 rounded-full object-cover border-2 border-[var(--color-border)]"
+              />
+            ) : (
+              <div className="h-20 w-20 rounded-full bg-gradient-to-br from-[var(--color-primary-400)] to-[var(--color-primary-700)] flex items-center justify-center text-white text-2xl font-bold">
+                {user.firstName[0]}
+                {user.lastName[0]}
+              </div>
+            )}
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              className="absolute inset-0 rounded-full bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
+              title="Foto hochladen"
+            >
+              <Camera className="h-6 w-6 text-white" />
+            </button>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/jpeg,image/png,image/gif,image/webp"
+              onChange={handleAvatarUpload}
+              className="hidden"
+            />
           </div>
-          <div>
+          <div className="flex-1 min-w-0">
             <h2 className="text-xl font-bold text-[var(--color-text-primary)]">
               {user.firstName} {user.lastName}
             </h2>
@@ -147,6 +214,27 @@ export default function ProfilePage() {
             <p className="text-sm text-[var(--color-text-muted)] mt-1">
               Abteilung: {user.department}
             </p>
+            <div className="flex items-center gap-2 mt-2">
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                className="text-xs text-[var(--color-primary-600)] hover:text-[var(--color-primary-700)] font-medium flex items-center gap-1"
+              >
+                <Camera className="h-3 w-3" />
+                Foto ändern
+              </button>
+              {user.avatar && (
+                <button
+                  onClick={removeAvatar}
+                  className="text-xs text-red-500 hover:text-red-600 font-medium flex items-center gap-1"
+                >
+                  <ImageOff className="h-3 w-3" />
+                  Foto entfernen
+                </button>
+              )}
+            </div>
+            {avatarError && (
+              <p className="text-xs text-red-600 mt-1">{avatarError}</p>
+            )}
           </div>
         </div>
       </div>

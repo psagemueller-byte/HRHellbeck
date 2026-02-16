@@ -103,10 +103,18 @@ export default function Sidebar() {
       {/* User section */}
       <div className="border-t border-[var(--color-border)] p-4">
         <div className="flex items-center gap-3 mb-3">
-          <div className="h-10 w-10 rounded-full bg-[var(--color-primary-100)] flex items-center justify-center text-[var(--color-primary-700)] font-semibold text-sm">
-            {user?.firstName?.[0]}
-            {user?.lastName?.[0]}
-          </div>
+          {user?.avatar ? (
+            <img
+              src={user.avatar}
+              alt={`${user.firstName} ${user.lastName}`}
+              className="h-10 w-10 rounded-full object-cover border border-[var(--color-border)] flex-shrink-0"
+            />
+          ) : (
+            <div className="h-10 w-10 rounded-full bg-[var(--color-primary-100)] flex items-center justify-center text-[var(--color-primary-700)] font-semibold text-sm flex-shrink-0">
+              {user?.firstName?.[0]}
+              {user?.lastName?.[0]}
+            </div>
+          )}
           <div className="flex-1 min-w-0">
             <p className="text-sm font-medium text-[var(--color-text-primary)] truncate">
               {user?.firstName} {user?.lastName}
