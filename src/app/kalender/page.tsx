@@ -17,6 +17,7 @@ import {
   Star,
   Trash2,
   Briefcase,
+  AlertTriangle,
 } from "lucide-react";
 import { ShiftType, SHIFT_TYPES } from "@/types";
 
@@ -63,6 +64,11 @@ export default function KalenderPage() {
   const [vacEndDate, setVacEndDate] = useState("");
   const [vacReason, setVacReason] = useState("");
   const [formError, setFormError] = useState("");
+  const [vacationConflict, setVacationConflict] = useState<{
+    dateStr: string;
+    vacationType: string;
+    userName: string;
+  } | null>(null);
 
   const viewUserId = selectedUserId || user?.id || "";
   const viewUser = allUsers.find((u) => u.id === viewUserId);
@@ -152,6 +158,33 @@ export default function KalenderPage() {
 
   const balance = getVacationBalance(viewUserId);
 
+  // Check if a date falls within approved vacation for the viewed user
+  const getVacationConflictForDate = (dateStr: string) => {
+    const checkDate = new Date(dateStr);
+    for (const v of vacationRequests) {
+      if (v.userId !== viewUserId) continue;
+      if (v.status !== "genehmigt") continue;
+      const start = new Date(v.startDate);
+      const end = new Date(v.endDate);
+      if (checkDate >= start && checkDate <= end) {
+        return v.type === "sonderurlaub" ? "Sonderurlaub" : "Urlaub";
+      }
+    }
+    return null;
+  };
+
+  const doAddShift = () => {
+    if (!user || !viewUserId) return;
+    addShift({
+      userId: viewUserId, date: selectedDate, type: newShiftType,
+      startTime: TIME_SHIFT_TYPES.includes(newShiftType) ? newShiftStart : undefined,
+      endTime: TIME_SHIFT_TYPES.includes(newShiftType) ? newShiftEnd : undefined,
+      note: newShiftNote || undefined, createdBy: user.id,
+    });
+    setShowAddShift(false);
+    setVacationConflict(null);
+  };
+
   const handleAddEntry = () => {
     if (!user || !viewUserId) return;
     if (!SHIFT_TYPES.includes(newShiftType)) return;
@@ -173,13 +206,17 @@ export default function KalenderPage() {
       });
       setShowAddShift(false);
     } else {
-      addShift({
-        userId: viewUserId, date: selectedDate, type: newShiftType,
-        startTime: TIME_SHIFT_TYPES.includes(newShiftType) ? newShiftStart : undefined,
-        endTime: TIME_SHIFT_TYPES.includes(newShiftType) ? newShiftEnd : undefined,
-        note: newShiftNote || undefined, createdBy: user.id,
-      });
-      setShowAddShift(false);
+      // Check for vacation conflict before adding shift
+      const conflictType = getVacationConflictForDate(selectedDate);
+      if (conflictType) {
+        setVacationConflict({
+          dateStr: selectedDate,
+          vacationType: conflictType,
+          userName: `${viewUser?.firstName} ${viewUser?.lastName}`,
+        });
+        return;
+      }
+      doAddShift();
     }
   };
 
@@ -371,6 +408,59 @@ export default function KalenderPage() {
                 <button onClick={() => setShowAddShift(false)} className="flex-1 px-4 py-2.5 border border-[var(--color-border)] rounded-lg text-sm font-medium text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-tertiary)] transition-colors">Abbrechen</button>
                 <button onClick={handleAddEntry} className="flex-1 px-4 py-2.5 bg-[var(--color-primary-600)] hover:bg-[var(--color-primary-700)] text-white rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2">
                   <Plus className="h-4 w-4" />{isVacationType ? "Urlaub eintragen" : "Eintragen"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Vacation conflict alarm modal */}
+      {vacationConflict && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[60] p-4">
+          <div className="bg-white rounded-2xl w-full max-w-md p-0 overflow-hidden shadow-2xl animate-[shake_0.3s_ease-in-out]">
+            {/* Red warning header */}
+            <div className="bg-red-600 px-6 py-5 flex items-center gap-4">
+              <div className="h-14 w-14 rounded-full bg-white/20 flex items-center justify-center flex-shrink-0">
+                <AlertTriangle className="h-8 w-8 text-white" />
+              </div>
+              <div>
+                <h2 className="text-lg font-bold text-white">Urlaubskonflikt!</h2>
+                <p className="text-red-100 text-sm mt-0.5">Achtung: Schichtzuweisung nicht möglich</p>
+              </div>
+            </div>
+
+            {/* Content */}
+            <div className="px-6 py-5">
+              <div className="bg-red-50 border-2 border-red-200 rounded-xl p-4 mb-4">
+                <p className="text-red-800 font-semibold text-sm">
+                  {vacationConflict.userName} hat am{" "}
+                  <span className="underline">
+                    {new Date(vacationConflict.dateStr).toLocaleDateString("de-DE", {
+                      weekday: "long",
+                      day: "numeric",
+                      month: "long",
+                      year: "numeric",
+                    })}
+                  </span>{" "}
+                  genehmigten <span className="underline">{vacationConflict.vacationType}</span>.
+                </p>
+                <p className="text-red-600 text-xs mt-2">
+                  Dieser Mitarbeiter ist an diesem Tag nicht verfügbar. Eine Schichtzuweisung widerspricht dem genehmigten Urlaubsantrag.
+                </p>
+              </div>
+
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setVacationConflict(null)}
+                  className="flex-1 px-4 py-3 bg-[var(--color-primary-600)] hover:bg-[var(--color-primary-700)] text-white rounded-lg text-sm font-bold transition-colors"
+                >
+                  Verstanden, abbrechen
+                </button>
+                <button
+                  onClick={doAddShift}
+                  className="px-4 py-3 border-2 border-red-300 text-red-600 hover:bg-red-50 rounded-lg text-xs font-medium transition-colors"
+                >
+                  Trotzdem eintragen
                 </button>
               </div>
             </div>
