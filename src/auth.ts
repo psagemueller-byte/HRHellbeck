@@ -1,0 +1,101 @@
+import NextAuth from "next-auth";
+import Credentials from "next-auth/providers/credentials";
+import { PrismaAdapter } from "@auth/prisma-adapter";
+import { prisma } from "@/lib/prisma";
+import bcrypt from "bcryptjs";
+import type { UserRole } from "@/types";
+
+export const { handlers, auth, signIn, signOut } = NextAuth({
+  adapter: PrismaAdapter(prisma),
+  session: { strategy: "jwt" },
+  pages: {
+    signIn: "/login",
+    error: "/login",
+  },
+  providers: [
+    Credentials({
+      name: "credentials",
+      credentials: {
+        email: { label: "E-Mail", type: "email" },
+        password: { label: "Passwort", type: "password" },
+      },
+      async authorize(credentials) {
+        if (!credentials?.email || !credentials?.password) return null;
+
+        const email = (credentials.email as string).toLowerCase().trim();
+        const password = credentials.password as string;
+
+        try {
+          const user = await prisma.user.findUnique({ where: { email } });
+          if (!user || !user.isActive || !user.passwordHash) {
+            console.log("[Auth] Login failed: user not found or inactive for", email);
+            return null;
+          }
+
+          const isValid = await bcrypt.compare(password, user.passwordHash);
+          if (!isValid) {
+            console.log("[Auth] Login failed: invalid password for", email);
+            return null;
+          }
+
+          return {
+            id: user.id,
+            email: user.email,
+            name: `${user.firstName} ${user.lastName}`.trim() || user.name,
+            image: user.image,
+          };
+        } catch (error) {
+          console.error("[Auth] Database error during login:", error);
+          return null;
+        }
+      },
+    }),
+  ],
+  callbacks: {
+    async jwt({ token, user, trigger }) {
+      if (user) {
+        // Initial sign-in: load full HR profile from DB
+        const dbUser = await prisma.user.findUnique({
+          where: { id: user.id },
+        });
+        if (dbUser) {
+          token.userId = dbUser.id;
+          token.role = dbUser.role as UserRole;
+          token.firstName = dbUser.firstName;
+          token.lastName = dbUser.lastName;
+          token.department = dbUser.department;
+          token.position = dbUser.position;
+          token.isActive = dbUser.isActive;
+        }
+      }
+      if (trigger === "update") {
+        // Refresh profile data from DB
+        const dbUser = await prisma.user.findUnique({
+          where: { id: token.userId as string },
+        });
+        if (dbUser) {
+          token.role = dbUser.role as UserRole;
+          token.firstName = dbUser.firstName;
+          token.lastName = dbUser.lastName;
+          token.department = dbUser.department;
+          token.position = dbUser.position;
+          token.isActive = dbUser.isActive;
+        }
+      }
+      return token;
+    },
+
+    async session({ session, token }) {
+      if (token) {
+        session.user.id = token.userId as string;
+        session.user.role = token.role as UserRole;
+        session.user.firstName = token.firstName as string;
+        session.user.lastName = token.lastName as string;
+        session.user.department = token.department as string;
+        session.user.position = token.position as string;
+        session.user.isActive = token.isActive as boolean;
+      }
+      return session;
+    },
+  },
+});

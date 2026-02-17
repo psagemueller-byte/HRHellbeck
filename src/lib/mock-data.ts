@@ -26,7 +26,7 @@ export const mockUsers: User[] = [
 
 // Password hashes (SHA-256 of "hellbeck:{password}")
 export const mockPasswordHashes: Record<string, string> = {
-  "usr-001": "45ef16e56accd172ec154a2c6c68b703399ad58e9962a23c6872e8d607470dfc",
+  "usr-001": "011d7a4601b9913c24996b3a46c25b8e326cd6a76bbd0a4bdccbaba926614985",
 };
 
 // Backwards-compatible default user

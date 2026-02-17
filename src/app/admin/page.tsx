@@ -86,6 +86,7 @@ export default function AdminPage() {
   const [inviteData, setInviteData] = useState(EMPTY_INVITE);
   const [inviteError, setInviteError] = useState("");
   const [inviteSuccess, setInviteSuccess] = useState("");
+  const [inviteLoading, setInviteLoading] = useState(false);
   const [confirmAction, setConfirmAction] = useState<{
     userId: string;
     action: "role" | "toggle" | "remove";
@@ -145,7 +146,9 @@ export default function AdminPage() {
     setConfirmAction(null);
   };
 
-  const handleInviteSubmit = (e: React.FormEvent) => {
+  const isMockAuth = process.env.NEXT_PUBLIC_MOCK_AUTH === "true";
+
+  const handleInviteSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setInviteError("");
     setInviteSuccess("");
@@ -181,25 +184,65 @@ export default function AdminPage() {
       return;
     }
 
-    const result = addUser({
-      ...cleaned,
-      street: "",
-      city: "",
-      zipCode: "",
-      country: "Deutschland",
-      birthDate: "",
-      startDate: new Date().toISOString().split("T")[0],
-    });
+    if (isMockAuth) {
+      // Mock mode: in-memory only
+      const result = addUser({
+        ...cleaned,
+        street: "",
+        city: "",
+        zipCode: "",
+        country: "Deutschland",
+        birthDate: "",
+        startDate: new Date().toISOString().split("T")[0],
+      });
 
-    if (result.success) {
-      setInviteSuccess(`${cleaned.firstName} ${cleaned.lastName} wurde erfolgreich eingeladen.`);
-      setInviteData(EMPTY_INVITE);
-      setTimeout(() => {
-        setInviteSuccess("");
-        setShowInviteForm(false);
-      }, 2000);
+      if (result.success) {
+        setInviteSuccess(`${cleaned.firstName} ${cleaned.lastName} wurde erfolgreich eingeladen.`);
+        setInviteData(EMPTY_INVITE);
+        setTimeout(() => {
+          setInviteSuccess("");
+          setShowInviteForm(false);
+        }, 2000);
+      } else {
+        setInviteError(result.error || "Fehler beim Anlegen des Nutzers.");
+      }
     } else {
-      setInviteError(result.error || "Fehler beim Anlegen des Nutzers.");
+      // Production mode: call invite API → creates user in DB + sends email
+      setInviteLoading(true);
+      try {
+        const res = await fetch("/api/auth/invite", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(cleaned),
+        });
+
+        const data = await res.json();
+
+        if (data.success) {
+          // Also add to local state for immediate UI update
+          addUser({
+            ...cleaned,
+            street: "",
+            city: "",
+            zipCode: "",
+            country: "Deutschland",
+            birthDate: "",
+            startDate: new Date().toISOString().split("T")[0],
+          });
+          setInviteSuccess(`Einladung an ${cleaned.email} gesendet.`);
+          setInviteData(EMPTY_INVITE);
+          setTimeout(() => {
+            setInviteSuccess("");
+            setShowInviteForm(false);
+          }, 3000);
+        } else {
+          setInviteError(data.error || "Fehler beim Einladen des Nutzers.");
+        }
+      } catch {
+        setInviteError("Verbindungsfehler. Bitte versuche es erneut.");
+      } finally {
+        setInviteLoading(false);
+      }
     }
   };
 
@@ -600,10 +643,17 @@ export default function AdminPage() {
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 px-4 py-2.5 bg-[var(--color-primary-600)] hover:bg-[var(--color-primary-700)] text-white rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2"
+                  disabled={inviteLoading}
+                  className="flex-1 px-4 py-2.5 bg-[var(--color-primary-600)] hover:bg-[var(--color-primary-700)] text-white rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
                 >
-                  <UserPlus className="h-4 w-4" />
-                  Einladen
+                  {inviteLoading ? (
+                    <div className="h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  ) : (
+                    <>
+                      <UserPlus className="h-4 w-4" />
+                      Einladen
+                    </>
+                  )}
                 </button>
               </div>
             </form>
