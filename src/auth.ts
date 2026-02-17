@@ -25,18 +25,29 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         const email = (credentials.email as string).toLowerCase().trim();
         const password = credentials.password as string;
 
-        const user = await prisma.user.findUnique({ where: { email } });
-        if (!user || !user.isActive || !user.passwordHash) return null;
+        try {
+          const user = await prisma.user.findUnique({ where: { email } });
+          if (!user || !user.isActive || !user.passwordHash) {
+            console.log("[Auth] Login failed: user not found or inactive for", email);
+            return null;
+          }
 
-        const isValid = await bcrypt.compare(password, user.passwordHash);
-        if (!isValid) return null;
+          const isValid = await bcrypt.compare(password, user.passwordHash);
+          if (!isValid) {
+            console.log("[Auth] Login failed: invalid password for", email);
+            return null;
+          }
 
-        return {
-          id: user.id,
-          email: user.email,
-          name: `${user.firstName} ${user.lastName}`.trim() || user.name,
-          image: user.image,
-        };
+          return {
+            id: user.id,
+            email: user.email,
+            name: `${user.firstName} ${user.lastName}`.trim() || user.name,
+            image: user.image,
+          };
+        } catch (error) {
+          console.error("[Auth] Database error during login:", error);
+          return null;
+        }
       },
     }),
   ],
