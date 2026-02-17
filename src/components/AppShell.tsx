@@ -7,16 +7,17 @@ import Sidebar from "./Sidebar";
 import Footer from "./Footer";
 import CookieConsent from "./CookieConsent";
 
-const PUBLIC_ROUTES = ["/login", "/datenschutz", "/impressum"];
+const PUBLIC_ROUTES = ["/login", "/datenschutz", "/impressum", "/passwort-vergessen", "/passwort-zuruecksetzen"];
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
-  const { isAuthenticated, hasRole } = useAuth();
+  const { isAuthenticated, isLoading, hasRole } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
 
   const isPublicRoute = PUBLIC_ROUTES.includes(pathname);
 
   useEffect(() => {
+    if (isLoading) return;
     if (!isAuthenticated && !isPublicRoute) {
       router.push("/login");
     }
@@ -26,7 +27,15 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     if (isAuthenticated && (pathname === "/admin" || pathname === "/organigramm") && !hasRole("admin")) {
       router.push("/dashboard");
     }
-  }, [isAuthenticated, pathname, isPublicRoute, hasRole, router]);
+  }, [isAuthenticated, isLoading, pathname, isPublicRoute, hasRole, router]);
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-[var(--color-surface-secondary)]">
+        <div className="h-8 w-8 border-2 border-[var(--color-primary-600)] border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
 
   if (isPublicRoute || !isAuthenticated) {
     return (

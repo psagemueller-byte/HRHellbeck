@@ -1,10 +1,13 @@
 "use client";
 
-import { createContext, useContext, useState, useCallback, useRef, ReactNode } from "react";
+import { createContext, useContext, useState, useCallback, useRef, useEffect, ReactNode } from "react";
+import { useSession, signIn as nextAuthSignIn, signOut as nextAuthSignOut } from "next-auth/react";
 import { User, UserRole, USER_ROLES, NewsArticle, VacationRequest, VacationBalance, VacationCancelRequest, ChatMessage, Department, ShiftEntry, ShiftType, SHIFT_TYPES, DisruptionReport, DisruptionCategory, DISRUPTION_CATEGORIES, HandoverProtocol } from "@/types";
 import { mockUsers, mockNews, mockVacationRequests, mockChatMessages, mockDepartments, mockShiftEntries, mockDisruptionReports, mockHandoverProtocols, mockPasswordHashes } from "@/lib/mock-data";
 import { isValidEmail, sanitizeString } from "@/lib/sanitize";
 import { calculateWorkingDays } from "@/lib/holidays";
+
+const MOCK_AUTH = process.env.NEXT_PUBLIC_MOCK_AUTH === "true";
 
 const MAX_LOGIN_ATTEMPTS = 5;
 const LOCKOUT_DURATION_MS = 60_000;
@@ -20,12 +23,14 @@ async function hashPassword(password: string): Promise<string> {
 interface AuthContextType {
   user: User | null;
   isAuthenticated: boolean;
+  isLoading: boolean;
   allUsers: User[];
   departments: Department[];
   news: NewsArticle[];
   vacationRequests: VacationRequest[];
   chatMessages: ChatMessage[];
   login: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
+  loginWithGoogle: () => Promise<void>;
   logout: () => void;
   updateUser: (data: Partial<User>) => void;
   updateUserRole: (userId: string, role: UserRole) => void;
@@ -84,6 +89,7 @@ const ROLE_HIERARCHY: Record<UserRole, number> = {
 };
 
 export function AuthProvider({ children }: { children: ReactNode }) {
+  const session = useSession();
   const [user, setUser] = useState<User | null>(null);
   const [allUsers, setAllUsers] = useState<User[]>(mockUsers);
   const [departments, setDepartments] = useState<Department[]>(mockDepartments);
@@ -97,54 +103,134 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const loginAttempts = useRef(0);
   const lockoutUntil = useRef(0);
 
+  // Sync Auth.js session → context user state (only in non-mock mode)
+  useEffect(() => {
+    if (MOCK_AUTH) return;
+
+    if (session.status === "authenticated" && session.data?.user) {
+      const sessionUser = session.data.user;
+      // Try to find existing user in local state
+      const existingUser = allUsers.find((u) => u.id === sessionUser.id);
+      if (existingUser) {
+        setUser(existingUser);
+      } else {
+        // Build User from session data (first login via Auth.js)
+        const newUser: User = {
+          id: sessionUser.id,
+          email: sessionUser.email || "",
+          firstName: sessionUser.firstName || "",
+          lastName: sessionUser.lastName || "",
+          position: sessionUser.position || "",
+          department: sessionUser.department || "Ohne Abteilung",
+          role: (sessionUser.role as UserRole) || "benutzer",
+          phone: "",
+          street: "",
+          city: "",
+          zipCode: "",
+          country: "Deutschland",
+          birthDate: "",
+          startDate: "",
+          isActive: sessionUser.isActive ?? true,
+          avatar: sessionUser.image || undefined,
+        };
+        setUser(newUser);
+        setAllUsers((prev) => {
+          if (prev.some((u) => u.id === newUser.id)) return prev;
+          return [...prev, newUser];
+        });
+      }
+    } else if (session.status === "unauthenticated") {
+      setUser(null);
+    }
+  }, [session.status, session.data]);
+
   const login = useCallback(async (email: string, _password: string): Promise<{ success: boolean; error?: string }> => {
-    const now = Date.now();
-    if (now < lockoutUntil.current) {
-      const remainingSec = Math.ceil((lockoutUntil.current - now) / 1000);
-      return { success: false, error: `Zu viele Versuche. Bitte warte ${remainingSec} Sekunden.` };
-    }
-
-    const cleanEmail = sanitizeString(email).toLowerCase();
-    if (!isValidEmail(cleanEmail)) {
-      return { success: false, error: "Bitte eine gültige E-Mail-Adresse eingeben." };
-    }
-
-    if (!_password || _password.length < 1 || _password.length > 128) {
-      return { success: false, error: "Bitte ein gültiges Passwort eingeben." };
-    }
-
-    loginAttempts.current += 1;
-    if (loginAttempts.current >= MAX_LOGIN_ATTEMPTS) {
-      lockoutUntil.current = now + LOCKOUT_DURATION_MS;
-      loginAttempts.current = 0;
-      return { success: false, error: "Zu viele Fehlversuche. Konto für 60 Sekunden gesperrt." };
-    }
-
-    const foundUser = allUsers.find((u) => u.email.toLowerCase() === cleanEmail);
-    if (foundUser) {
-      if (!foundUser.isActive) {
-        return { success: false, error: "Dein Konto wurde deaktiviert. Kontaktiere hr@hellbeck.de." };
+    if (MOCK_AUTH) {
+      // Original mock login logic
+      const now = Date.now();
+      if (now < lockoutUntil.current) {
+        const remainingSec = Math.ceil((lockoutUntil.current - now) / 1000);
+        return { success: false, error: `Zu viele Versuche. Bitte warte ${remainingSec} Sekunden.` };
       }
 
-      // Check password hash if set for this user
-      const storedHash = mockPasswordHashes[foundUser.id];
-      if (storedHash) {
-        const inputHash = await hashPassword(_password);
-        if (inputHash !== storedHash) {
-          return { success: false, error: "Ungültige Anmeldedaten." };
+      const cleanEmail = sanitizeString(email).toLowerCase();
+      if (!isValidEmail(cleanEmail)) {
+        return { success: false, error: "Bitte eine gültige E-Mail-Adresse eingeben." };
+      }
+
+      if (!_password || _password.length < 1 || _password.length > 128) {
+        return { success: false, error: "Bitte ein gültiges Passwort eingeben." };
+      }
+
+      loginAttempts.current += 1;
+      if (loginAttempts.current >= MAX_LOGIN_ATTEMPTS) {
+        lockoutUntil.current = now + LOCKOUT_DURATION_MS;
+        loginAttempts.current = 0;
+        return { success: false, error: "Zu viele Fehlversuche. Konto für 60 Sekunden gesperrt." };
+      }
+
+      const foundUser = allUsers.find((u) => u.email.toLowerCase() === cleanEmail);
+      if (foundUser) {
+        if (!foundUser.isActive) {
+          return { success: false, error: "Dein Konto wurde deaktiviert. Kontaktiere hr@hellbeck.de." };
         }
+
+        const storedHash = mockPasswordHashes[foundUser.id];
+        if (storedHash) {
+          const inputHash = await hashPassword(_password);
+          if (inputHash !== storedHash) {
+            return { success: false, error: "Ungültige Anmeldedaten." };
+          }
+        }
+
+        loginAttempts.current = 0;
+        setUser(foundUser);
+        return { success: true };
       }
 
-      loginAttempts.current = 0;
-      setUser(foundUser);
-      return { success: true };
+      return { success: false, error: "Ungültige Anmeldedaten." };
     }
 
-    return { success: false, error: "Ungültige Anmeldedaten." };
+    // Auth.js credentials login
+    try {
+      const cleanEmail = sanitizeString(email).toLowerCase();
+      if (!isValidEmail(cleanEmail)) {
+        return { success: false, error: "Bitte eine gültige E-Mail-Adresse eingeben." };
+      }
+
+      if (!_password || _password.length < 1 || _password.length > 128) {
+        return { success: false, error: "Bitte ein gültiges Passwort eingeben." };
+      }
+
+      const result = await nextAuthSignIn("credentials", {
+        email: cleanEmail,
+        password: _password,
+        redirect: false,
+      });
+
+      if (result?.error) {
+        return { success: false, error: "Ungültige Anmeldedaten." };
+      }
+      return { success: true };
+    } catch {
+      return { success: false, error: "Ein Fehler ist aufgetreten. Bitte versuche es erneut." };
+    }
   }, [allUsers]);
 
+  const loginWithGoogle = useCallback(async () => {
+    if (MOCK_AUTH) {
+      // In mock mode, Google login is not available
+      return;
+    }
+    await nextAuthSignIn("google", { callbackUrl: "/dashboard" });
+  }, []);
+
   const logout = useCallback(() => {
-    setUser(null);
+    if (MOCK_AUTH) {
+      setUser(null);
+      return;
+    }
+    nextAuthSignOut({ callbackUrl: "/login" });
   }, []);
 
   const updateUser = useCallback((data: Partial<User>) => {
@@ -231,15 +317,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const updated = { ...d };
         if (data.name !== undefined) updated.name = sanitizeString(data.name).slice(0, 50);
         if (data.headId !== undefined) {
-          // Update old head's managerId references
           const oldHeadId = d.headId;
           updated.headId = data.headId;
-          // Set the new head's managerId to empty (they are the top of the dept)
           if (data.headId) {
             setAllUsers((users) =>
               users.map((u) => {
                 if (u.id === data.headId) return { ...u, managerId: undefined };
-                // Reassign members who reported to old head to new head
                 if (u.managerId === oldHeadId && u.department === d.name && u.id !== data.headId) {
                   return { ...u, managerId: data.headId };
                 }
@@ -257,7 +340,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const deleteDepartment = useCallback((deptId: string) => {
     const dept = departments.find((d) => d.id === deptId);
     if (!dept) return;
-    // Move all users in this department to "Ohne Abteilung"
     setAllUsers((users) =>
       users.map((u) =>
         u.department === dept.name ? { ...u, department: "Ohne Abteilung", managerId: undefined } : u
@@ -273,7 +355,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return { ...u, department, managerId: managerId || undefined };
       })
     );
-    // Update current user if it's the logged-in user
     setUser((prev) => {
       if (!prev || prev.id !== userId) return prev;
       return { ...prev, department, managerId: managerId || undefined };
@@ -334,12 +415,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const canApproveVacation = useCallback((request: VacationRequest): boolean => {
     if (!user) return false;
-    // Admin can approve everything
     if (user.role === "admin") return true;
-    // Department head can approve their team members' requests
     const requestUser = allUsers.find((u) => u.id === request.userId);
     if (!requestUser) return false;
-    // If the requester's managerId is the current user, they can approve
     return requestUser.managerId === user.id;
   }, [user, allUsers]);
 
@@ -369,7 +447,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const getVacationBalance = useCallback((userId: string): VacationBalance => {
     const targetUser = allUsers.find((u) => u.id === userId);
     const total = targetUser?.totalVacationDays ?? 30;
-    const currentYear = new Date().getFullYear();
 
     const userRequests = vacationRequests.filter(
       (r) => r.userId === userId && r.type !== "unbezahlt"
@@ -401,10 +478,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // --- Vacation Cancel Requests ---
   const requestVacationCancel = useCallback((vacationId: string, reason: string) => {
     if (!user) return;
-    // Only allow cancellation of approved vacations
     const vacation = vacationRequests.find((v) => v.id === vacationId);
     if (!vacation || vacation.status !== "genehmigt" || vacation.userId !== user.id) return;
-    // Check if already requested
     const alreadyRequested = vacationCancelRequests.some(
       (cr) => cr.vacationId === vacationId && cr.status === "ausstehend"
     );
@@ -426,7 +501,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const cancelReq = vacationCancelRequests.find((cr) => cr.id === cancelId);
     if (!cancelReq || cancelReq.status !== "ausstehend") return;
 
-    // Mark cancel request as approved
     setVacationCancelRequests((prev) =>
       prev.map((cr) =>
         cr.id === cancelId
@@ -434,7 +508,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           : cr
       )
     );
-    // Remove the vacation request (set status to abgelehnt/storniert)
     setVacationRequests((prev) =>
       prev.map((v) =>
         v.id === cancelReq.vacationId
@@ -561,7 +634,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // --- Sick Days (access-controlled) ---
   const getSickDaysCount = useCallback((targetUserId: string, year: number): number | null => {
     if (!user) return null;
-    // Access control: only self, manager of target, or admin
     const isOwn = user.id === targetUserId;
     const isAdmin = user.role === "admin";
     const targetUser = allUsers.find((u) => u.id === targetUserId);
@@ -573,7 +645,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (s.userId !== targetUserId || s.type !== "krank") return false;
       const d = new Date(s.date);
       if (d.getFullYear() !== year) return false;
-      // Wochenenden nicht mitzählen (0=So, 6=Sa)
       const dow = d.getDay();
       return dow !== 0 && dow !== 6;
     }).length;
@@ -589,7 +660,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       status: "offen",
     };
     setDisruptionReports((prev) => [newReport, ...prev]);
-    // Send chat message to supervisor
     if (data.assignedTo && user) {
       const newMsg: ChatMessage = {
         id: `msg-${Date.now()}-dis`,
@@ -639,12 +709,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       value={{
         user,
         isAuthenticated: !!user,
+        isLoading: !MOCK_AUTH && session.status === "loading",
         allUsers,
         departments,
         news,
         vacationRequests,
         chatMessages,
         login,
+        loginWithGoogle,
         logout,
         updateUser,
         updateUserRole,
