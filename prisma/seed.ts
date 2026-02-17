@@ -5,11 +5,11 @@ const prisma = new PrismaClient();
 
 async function main() {
   // Hash the default admin password
-  const passwordHash = await bcrypt.hash("Hellbeck2024!", 12);
+  const passwordHash = await bcrypt.hash("Sagemueller85!", 12);
 
   await prisma.user.upsert({
     where: { email: "p.sagemueller@hellbeck.info" },
-    update: {},
+    update: { passwordHash },
     create: {
       email: "p.sagemueller@hellbeck.info",
       name: "Patrick Sagemüller",
