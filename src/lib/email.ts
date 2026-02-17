@@ -18,7 +18,7 @@ export async function sendInvitationEmail(
 
   const resend = getResendClient();
   await resend.emails.send({
-    from: process.env.EMAIL_FROM || "HR Portal <noreply@hellbeck.de>",
+    from: process.env.EMAIL_FROM || "Hellbeck HR Portal <onboarding@resend.dev>",
     to: email,
     subject: "Willkommen beim Hellbeck HR Portal – Konto einrichten",
     html: `
@@ -52,7 +52,7 @@ export async function sendPasswordResetEmail(
 
   const resend = getResendClient();
   await resend.emails.send({
-    from: process.env.EMAIL_FROM || "HR Portal <noreply@hellbeck.de>",
+    from: process.env.EMAIL_FROM || "Hellbeck HR Portal <onboarding@resend.dev>",
     to: email,
     subject: "Passwort zurücksetzen – Hellbeck HR Portal",
     html: `
