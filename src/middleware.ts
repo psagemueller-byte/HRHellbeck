@@ -1,5 +1,5 @@
-import { NextResponse } from "next/server";
-import { auth } from "@/auth";
+import { NextRequest, NextResponse } from "next/server";
+import { getToken } from "next-auth/jwt";
 
 const PUBLIC_ROUTES = [
   "/login",
@@ -11,7 +11,7 @@ const PUBLIC_ROUTES = [
   "/api/auth",
 ];
 
-export default auth((req) => {
+export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
   // Allow public routes
@@ -27,17 +27,27 @@ export default auth((req) => {
     return NextResponse.next();
   }
 
-  // Check session (Auth.js v5 — reads cookie natively)
-  const session = req.auth;
+  // Auth.js v5 uses "authjs.session-token" cookie (not "next-auth.session-token")
+  const isSecure = req.nextUrl.protocol === "https:";
+  const cookieName = isSecure
+    ? "__Secure-authjs.session-token"
+    : "authjs.session-token";
 
-  if (!session) {
+  const token = await getToken({
+    req,
+    secret: process.env.AUTH_SECRET,
+    salt: cookieName,
+    cookieName,
+  });
+
+  if (!token) {
     const loginUrl = new URL("/login", req.url);
     loginUrl.searchParams.set("callbackUrl", pathname);
     return NextResponse.redirect(loginUrl);
   }
 
   // Check if user is active
-  if (session.user?.isActive === false) {
+  if (token.isActive === false) {
     return NextResponse.redirect(
       new URL("/login?error=Deactivated", req.url)
     );
@@ -47,13 +57,13 @@ export default auth((req) => {
   const adminRoutes = ["/admin", "/organigramm"];
   if (
     adminRoutes.some((r) => pathname.startsWith(r)) &&
-    session.user?.role !== "admin"
+    token.role !== "admin"
   ) {
     return NextResponse.redirect(new URL("/dashboard", req.url));
   }
 
   return NextResponse.next();
-});
+}
 
 export const config = {
   matcher: [
