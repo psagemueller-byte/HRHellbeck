@@ -1,5 +1,4 @@
 import NextAuth from "next-auth";
-import Google from "next-auth/providers/google";
 import Credentials from "next-auth/providers/credentials";
 import { PrismaAdapter } from "@auth/prisma-adapter";
 import { prisma } from "@/lib/prisma";
@@ -14,11 +13,6 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     error: "/login",
   },
   providers: [
-    Google({
-      clientId: process.env.AUTH_GOOGLE_ID!,
-      clientSecret: process.env.AUTH_GOOGLE_SECRET!,
-      allowDangerousEmailAccountLinking: true,
-    }),
     Credentials({
       name: "credentials",
       credentials: {
@@ -47,24 +41,6 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     }),
   ],
   callbacks: {
-    async signIn({ user, account }) {
-      if (account?.provider === "google") {
-        const dbUser = await prisma.user.findUnique({
-          where: { email: user.email! },
-        });
-
-        if (dbUser && !dbUser.isActive) {
-          return false;
-        }
-
-        // Only allow Google login for pre-existing HR users
-        if (!dbUser) {
-          return "/login?error=NoAccount";
-        }
-      }
-      return true;
-    },
-
     async jwt({ token, user, trigger }) {
       if (user) {
         // Initial sign-in: load full HR profile from DB

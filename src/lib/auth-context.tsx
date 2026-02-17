@@ -30,7 +30,6 @@ interface AuthContextType {
   vacationRequests: VacationRequest[];
   chatMessages: ChatMessage[];
   login: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
-  loginWithGoogle: () => Promise<void>;
   logout: () => void;
   updateUser: (data: Partial<User>) => void;
   updateUserRole: (userId: string, role: UserRole) => void;
@@ -216,14 +215,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return { success: false, error: "Ein Fehler ist aufgetreten. Bitte versuche es erneut." };
     }
   }, [allUsers]);
-
-  const loginWithGoogle = useCallback(async () => {
-    if (MOCK_AUTH) {
-      // In mock mode, Google login is not available
-      return;
-    }
-    await nextAuthSignIn("google", { callbackUrl: "/dashboard" });
-  }, []);
 
   const logout = useCallback(() => {
     if (MOCK_AUTH) {
@@ -716,7 +707,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         vacationRequests,
         chatMessages,
         login,
-        loginWithGoogle,
         logout,
         updateUser,
         updateUserRole,

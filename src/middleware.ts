@@ -7,6 +7,7 @@ const PUBLIC_ROUTES = [
   "/impressum",
   "/passwort-vergessen",
   "/passwort-zuruecksetzen",
+  "/konto-einrichten",
   "/api/auth",
 ];
 

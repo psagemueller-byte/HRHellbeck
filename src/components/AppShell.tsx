@@ -7,7 +7,7 @@ import Sidebar from "./Sidebar";
 import Footer from "./Footer";
 import CookieConsent from "./CookieConsent";
 
-const PUBLIC_ROUTES = ["/login", "/datenschutz", "/impressum", "/passwort-vergessen", "/passwort-zuruecksetzen"];
+const PUBLIC_ROUTES = ["/login", "/datenschutz", "/impressum", "/passwort-vergessen", "/passwort-zuruecksetzen", "/konto-einrichten"];
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, isLoading, hasRole } = useAuth();
