@@ -1,5 +1,5 @@
-import { auth } from "@/auth";
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
+import { getToken } from "next-auth/jwt";
 
 const PUBLIC_ROUTES = [
   "/login",
@@ -11,7 +11,7 @@ const PUBLIC_ROUTES = [
   "/api/auth",
 ];
 
-export default auth((req) => {
+export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
   // Allow public routes
@@ -27,15 +27,17 @@ export default auth((req) => {
     return NextResponse.next();
   }
 
-  // Redirect unauthenticated users to login
-  if (!req.auth) {
+  // Check JWT token (lightweight — no Prisma/bcrypt import)
+  const token = await getToken({ req, secret: process.env.AUTH_SECRET });
+
+  if (!token) {
     const loginUrl = new URL("/login", req.url);
     loginUrl.searchParams.set("callbackUrl", pathname);
     return NextResponse.redirect(loginUrl);
   }
 
   // Check if user is active
-  if (req.auth.user && !(req.auth.user as { isActive?: boolean }).isActive) {
+  if (token.isActive === false) {
     return NextResponse.redirect(
       new URL("/login?error=Deactivated", req.url)
     );
@@ -45,13 +47,13 @@ export default auth((req) => {
   const adminRoutes = ["/admin", "/organigramm"];
   if (
     adminRoutes.some((r) => pathname.startsWith(r)) &&
-    (req.auth.user as { role?: string })?.role !== "admin"
+    token.role !== "admin"
   ) {
     return NextResponse.redirect(new URL("/dashboard", req.url));
   }
 
   return NextResponse.next();
-});
+}
 
 export const config = {
   matcher: [
