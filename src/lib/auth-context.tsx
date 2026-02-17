@@ -2,12 +2,20 @@
 
 import { createContext, useContext, useState, useCallback, useRef, ReactNode } from "react";
 import { User, UserRole, USER_ROLES, NewsArticle, VacationRequest, VacationBalance, VacationCancelRequest, ChatMessage, Department, ShiftEntry, ShiftType, SHIFT_TYPES, DisruptionReport, DisruptionCategory, DISRUPTION_CATEGORIES, HandoverProtocol } from "@/types";
-import { mockUsers, mockNews, mockVacationRequests, mockChatMessages, mockDepartments, mockShiftEntries, mockDisruptionReports, mockHandoverProtocols } from "@/lib/mock-data";
+import { mockUsers, mockNews, mockVacationRequests, mockChatMessages, mockDepartments, mockShiftEntries, mockDisruptionReports, mockHandoverProtocols, mockPasswordHashes } from "@/lib/mock-data";
 import { isValidEmail, sanitizeString } from "@/lib/sanitize";
 import { calculateWorkingDays } from "@/lib/holidays";
 
 const MAX_LOGIN_ATTEMPTS = 5;
 const LOCKOUT_DURATION_MS = 60_000;
+const PASSWORD_SALT = "hellbeck";
+
+async function hashPassword(password: string): Promise<string> {
+  const data = new TextEncoder().encode(`${PASSWORD_SALT}:${password}`);
+  const hashBuffer = await crypto.subtle.digest("SHA-256", data);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  return hashArray.map((b) => b.toString(16).padStart(2, "0")).join("");
+}
 
 interface AuthContextType {
   user: User | null;
@@ -117,6 +125,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (!foundUser.isActive) {
         return { success: false, error: "Dein Konto wurde deaktiviert. Kontaktiere hr@hellbeck.de." };
       }
+
+      // Check password hash if set for this user
+      const storedHash = mockPasswordHashes[foundUser.id];
+      if (storedHash) {
+        const inputHash = await hashPassword(_password);
+        if (inputHash !== storedHash) {
+          return { success: false, error: "Ungültige Anmeldedaten." };
+        }
+      }
+
       loginAttempts.current = 0;
       setUser(foundUser);
       return { success: true };
