@@ -108,8 +108,12 @@ export async function POST(req: NextRequest) {
     });
   } catch (error) {
     console.error("Invitation error:", error);
+    const message =
+      error instanceof Error && error.message.includes("RESEND_API_KEY")
+        ? "E-Mail-Versand fehlgeschlagen: RESEND_API_KEY ist nicht konfiguriert."
+        : "Ein Fehler ist aufgetreten. Bitte prüfe die Server-Logs.";
     return NextResponse.json(
-      { success: false, error: "Ein Fehler ist aufgetreten." },
+      { success: false, error: message },
       { status: 500 }
     );
   }
