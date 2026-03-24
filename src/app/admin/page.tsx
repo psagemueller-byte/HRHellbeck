@@ -616,13 +616,16 @@ export default function AdminPage() {
                   <label className="block text-sm font-medium text-[var(--color-text-primary)] mb-1.5">
                     Abteilung *
                   </label>
-                  <input
-                    type="text"
+                  <select
                     value={inviteData.department}
                     onChange={(e) => setInviteData({ ...inviteData, department: e.target.value })}
-                    maxLength={100}
-                    className="w-full px-3 py-2.5 border border-[var(--color-border)] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary-500)]"
-                  />
+                    className="w-full px-3 py-2.5 border border-[var(--color-border)] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary-500)] bg-white"
+                  >
+                    <option value="">Abteilung wählen</option>
+                    {departments.map((d) => (
+                      <option key={d.id} value={d.name}>{d.name}</option>
+                    ))}
+                  </select>
                 </div>
               </div>
 
