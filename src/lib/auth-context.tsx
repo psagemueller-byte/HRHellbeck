@@ -250,14 +250,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return { success: false, error: "Bitte ein gültiges Passwort eingeben." };
       }
 
+      console.log("[Auth] Calling signIn for:", cleanEmail);
       const result = await nextAuthSignIn("credentials", {
         email: cleanEmail,
         password: _password,
         redirect: false,
       });
+      console.log("[Auth] signIn returned:", JSON.stringify(result));
 
       if (!result?.ok || result?.error) {
-        console.error("[Auth] signIn result:", result);
+        console.error("[Auth] signIn failed:", result);
         return { success: false, error: "Ungültige Anmeldedaten." };
       }
       return { success: true };

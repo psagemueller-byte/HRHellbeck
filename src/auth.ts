@@ -53,6 +53,13 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     }),
   ],
   callbacks: {
+    async signIn({ account }) {
+      // Credentials provider must be explicitly allowed with PrismaAdapter
+      if (account?.provider === "credentials") {
+        return true;
+      }
+      return true;
+    },
     async jwt({ token, user, trigger }) {
       if (user) {
         // Initial sign-in: load full HR profile from DB
