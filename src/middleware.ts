@@ -29,7 +29,8 @@ export async function middleware(req: NextRequest) {
   }
 
   // Check JWT token (lightweight — no Prisma/bcrypt import)
-  const token = await getToken({ req, secret: process.env.AUTH_SECRET });
+  const secureCookie = req.nextUrl.protocol === "https:";
+  const token = await getToken({ req, secret: process.env.AUTH_SECRET, secureCookie });
 
   if (!token) {
     const loginUrl = new URL("/login", req.url);
