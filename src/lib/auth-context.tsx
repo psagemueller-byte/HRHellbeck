@@ -93,6 +93,7 @@ interface AuthContextType {
   handoverProtocols: HandoverProtocol[];
   addHandover: (data: Omit<HandoverProtocol, "id" | "createdAt">) => void;
   getHandoversForUser: (userId: string) => HandoverProtocol[];
+  refreshUsers: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -152,45 +153,83 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [passwordHashes]);
 
   // Sync Auth.js session → context user state (only in non-mock mode)
+  // Fetch all users from DB when authenticated (production mode)
+  const dbUsersFetched = useRef(false);
   useEffect(() => {
     if (MOCK_AUTH) return;
+    if (session.status !== "authenticated" || !session.data?.user) return;
+    if (dbUsersFetched.current) return;
+    dbUsersFetched.current = true;
 
-    if (session.status === "authenticated" && session.data?.user) {
-      const sessionUser = session.data.user;
-      // Try to find existing user in local state
-      const existingUser = allUsers.find((u) => u.id === sessionUser.id);
-      if (existingUser) {
-        setUser(existingUser);
-      } else {
-        // Build User from session data (first login via Auth.js)
-        const newUser: User = {
-          id: sessionUser.id,
-          email: sessionUser.email || "",
-          firstName: sessionUser.firstName || "",
-          lastName: sessionUser.lastName || "",
-          position: sessionUser.position || "",
-          department: sessionUser.department || "Ohne Abteilung",
-          role: (sessionUser.role as UserRole) || "benutzer",
-          phone: "",
-          street: "",
-          city: "",
-          zipCode: "",
-          country: "Deutschland",
-          birthDate: "",
-          startDate: "",
-          isActive: sessionUser.isActive ?? true,
-          avatar: sessionUser.image || undefined,
-        };
-        setUser(newUser);
+    const sessionUser = session.data.user;
+
+    // Set current user from session immediately
+    const currentUser: User = {
+      id: sessionUser.id,
+      email: sessionUser.email || "",
+      firstName: sessionUser.firstName || "",
+      lastName: sessionUser.lastName || "",
+      position: sessionUser.position || "",
+      department: sessionUser.department || "Ohne Abteilung",
+      role: (sessionUser.role as UserRole) || "benutzer",
+      phone: "",
+      street: "",
+      city: "",
+      zipCode: "",
+      country: "Deutschland",
+      birthDate: "",
+      startDate: "",
+      isActive: sessionUser.isActive ?? true,
+      avatar: sessionUser.image || undefined,
+    };
+    setUser(currentUser);
+
+    // Fetch all users from DB for admin list
+    fetch("/api/users")
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.success && data.users) {
+          const dbUsers: User[] = data.users.map((u: Record<string, unknown>) => ({
+            id: u.id as string,
+            email: u.email as string || "",
+            firstName: u.firstName as string || "",
+            lastName: u.lastName as string || "",
+            position: u.position as string || "",
+            department: u.department as string || "Ohne Abteilung",
+            role: (u.role as UserRole) || "benutzer",
+            phone: u.phone as string || "",
+            street: "",
+            city: "",
+            zipCode: "",
+            country: "Deutschland",
+            birthDate: "",
+            startDate: "",
+            isActive: u.isActive as boolean ?? true,
+            avatar: u.image as string || undefined,
+          }));
+          setAllUsers(dbUsers);
+          // Update current user with full DB data
+          const meFromDb = dbUsers.find((u) => u.id === sessionUser.id);
+          if (meFromDb) setUser(meFromDb);
+        }
+      })
+      .catch(() => {
+        // Fallback: at least add session user to list
         setAllUsers((prev) => {
-          if (prev.some((u) => u.id === newUser.id)) return prev;
-          return [...prev, newUser];
+          if (prev.some((u) => u.id === currentUser.id)) return prev;
+          return [...prev, currentUser];
         });
-      }
-    } else if (session.status === "unauthenticated") {
-      setUser(null);
-    }
+      });
   }, [session.status, session.data]);
+
+  // Handle unauthenticated state
+  useEffect(() => {
+    if (MOCK_AUTH) return;
+    if (session.status === "unauthenticated") {
+      setUser(null);
+      dbUsersFetched.current = false;
+    }
+  }, [session.status]);
 
   const login = useCallback(async (email: string, _password: string): Promise<{ success: boolean; error?: string }> => {
     if (MOCK_AUTH) {
@@ -752,6 +791,37 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
   }, [handoverProtocols]);
 
+  const refreshUsers = useCallback(async () => {
+    if (MOCK_AUTH) return;
+    try {
+      const res = await fetch("/api/users");
+      const data = await res.json();
+      if (data.success && data.users) {
+        const dbUsers: User[] = data.users.map((u: Record<string, unknown>) => ({
+          id: u.id as string,
+          email: u.email as string || "",
+          firstName: u.firstName as string || "",
+          lastName: u.lastName as string || "",
+          position: u.position as string || "",
+          department: u.department as string || "Ohne Abteilung",
+          role: (u.role as UserRole) || "benutzer",
+          phone: u.phone as string || "",
+          street: "",
+          city: "",
+          zipCode: "",
+          country: "Deutschland",
+          birthDate: "",
+          startDate: "",
+          isActive: u.isActive as boolean ?? true,
+          avatar: u.image as string || undefined,
+        }));
+        setAllUsers(dbUsers);
+      }
+    } catch {
+      // silently fail
+    }
+  }, []);
+
   return (
     <AuthContext.Provider
       value={{
@@ -808,6 +878,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         handoverProtocols,
         addHandover,
         getHandoversForUser,
+        refreshUsers,
       }}
     >
       {children}

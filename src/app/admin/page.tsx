@@ -83,6 +83,7 @@ export default function AdminPage() {
     moveUserToDepartment,
     getVacationBalance,
     updateUserVacationDays,
+    refreshUsers,
   } = useAuth();
   const router = useRouter();
   const [searchQuery, setSearchQuery] = useState("");
@@ -277,16 +278,8 @@ export default function AdminPage() {
         const data = await res.json();
 
         if (data.success) {
-          // Also add to local state for immediate UI update
-          addUser({
-            ...cleaned,
-            street: "",
-            city: "",
-            zipCode: "",
-            country: "Deutschland",
-            birthDate: "",
-            startDate: new Date().toISOString().split("T")[0],
-          });
+          // Refresh user list from DB
+          await refreshUsers();
           setInviteSuccess(
             createMode === "manual"
               ? `${cleaned.firstName} ${cleaned.lastName} angelegt. Passwort wurde gesetzt.`
