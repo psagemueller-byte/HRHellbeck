@@ -2,6 +2,7 @@
 
 import { useState, useMemo } from "react";
 import { useAuth } from "@/lib/auth-context";
+import { uploadFile } from "@/lib/upload";
 import {
   AlertTriangle,
   Plus,
@@ -69,23 +70,34 @@ export default function StoerungenPage() {
     return false;
   };
 
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files) return;
-    Array.from(files).forEach((file) => {
-      if (file.size > 5 * 1024 * 1024) return; // max 5MB
-      if (!file.type.startsWith("image/")) return;
-      const reader = new FileReader();
-      reader.onload = () => {
-        if (typeof reader.result === "string") {
-          setFormData((prev) => ({
-            ...prev,
-            imageUrls: [...prev.imageUrls, reader.result as string].slice(0, 5),
-          }));
-        }
-      };
-      reader.readAsDataURL(file);
-    });
+    for (const file of Array.from(files)) {
+      if (file.size > 5 * 1024 * 1024) continue; // max 5MB
+      if (!file.type.startsWith("image/")) continue;
+
+      // Upload to Supabase Storage
+      const url = await uploadFile(file, "disruptions");
+      if (url) {
+        setFormData((prev) => ({
+          ...prev,
+          imageUrls: [...prev.imageUrls, url].slice(0, 5),
+        }));
+      } else {
+        // Fallback to data URL if upload fails
+        const reader = new FileReader();
+        reader.onload = () => {
+          if (typeof reader.result === "string") {
+            setFormData((prev) => ({
+              ...prev,
+              imageUrls: [...prev.imageUrls, reader.result as string].slice(0, 5),
+            }));
+          }
+        };
+        reader.readAsDataURL(file);
+      }
+    }
   };
 
   const handleSubmit = () => {

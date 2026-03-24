@@ -362,12 +362,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setAllUsers((users) =>
       users.map((u) => (u.id === userId ? { ...u, role } : u))
     );
+    if (!MOCK_AUTH) {
+      fetch("/api/users/admin", { method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "update-role", userId, role }),
+      }).catch(() => {});
+    }
   }, []);
 
   const toggleUserActive = useCallback((userId: string) => {
     setAllUsers((users) =>
       users.map((u) => (u.id === userId ? { ...u, isActive: !u.isActive } : u))
     );
+    if (!MOCK_AUTH) {
+      fetch("/api/users/admin", { method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "toggle-active", userId }),
+      }).catch(() => {});
+    }
   }, []);
 
   const addUser = useCallback((data: Omit<User, "id" | "isActive">): { success: boolean; error?: string; userId?: string } => {
@@ -383,6 +393,38 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (!USER_ROLES.includes(data.role)) {
       return { success: false, error: "Ungültige Rolle." };
     }
+
+    if (!MOCK_AUTH) {
+      // Create user via API and update state with DB response
+      fetch("/api/auth/create-user", { method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      }).then((r) => r.json()).then((res) => {
+        if (res.success && res.user) {
+          const newUser: User = {
+            id: res.user.id,
+            email: res.user.email || data.email,
+            firstName: res.user.firstName || data.firstName,
+            lastName: res.user.lastName || data.lastName,
+            position: res.user.position || data.position,
+            department: res.user.department || data.department,
+            role: (res.user.role as UserRole) || data.role,
+            phone: res.user.phone || data.phone || "",
+            street: res.user.street || "",
+            city: res.user.city || "",
+            zipCode: res.user.zipCode || "",
+            country: res.user.country || "Deutschland",
+            birthDate: res.user.birthDate || "",
+            startDate: res.user.startDate || "",
+            isActive: true,
+            avatar: res.user.image || undefined,
+            totalVacationDays: res.user.totalVacationDays ?? 30,
+          };
+          setAllUsers((users) => [...users, newUser]);
+        }
+      }).catch(() => {});
+      return { success: true, userId: undefined };
+    }
+
     const newUser: User = {
       ...data,
       id: `usr-${Date.now()}`,
@@ -394,10 +436,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const setPasswordForUser = useCallback((userId: string, pwHash: string) => {
     setPasswordHashes((prev) => ({ ...prev, [userId]: pwHash }));
+    if (!MOCK_AUTH) {
+      fetch("/api/users/admin", { method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "set-password", userId, passwordHash: pwHash }),
+      }).catch(() => {});
+    }
   }, []);
 
   const removeUser = useCallback((userId: string) => {
     setAllUsers((users) => users.filter((u) => u.id !== userId));
+    if (!MOCK_AUTH) {
+      fetch("/api/users/admin", { method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "remove-user", userId }),
+      }).catch(() => {});
+    }
   }, []);
 
   const hasRole = useCallback(
@@ -514,6 +566,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (!prev || prev.id !== userId) return prev;
       return { ...prev, department, managerId: managerId || undefined };
     });
+    if (!MOCK_AUTH) {
+      fetch("/api/users/admin", { method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "move-department", userId, department, managerId: managerId || null }),
+      }).catch(() => {});
+    }
   }, []);
 
   const getPendingApprovalsCount = useCallback(() => {
@@ -668,6 +725,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setAllUsers((users) =>
       users.map((u) => (u.id === userId ? { ...u, totalVacationDays: clampedDays } : u))
     );
+    if (!MOCK_AUTH) {
+      fetch("/api/users/admin", { method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "update-vacation-days", userId, days: clampedDays }),
+      }).catch(() => {});
+    }
   }, []);
 
   // --- Vacation Cancel Requests ---

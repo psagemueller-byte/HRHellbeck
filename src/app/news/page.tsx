@@ -3,6 +3,7 @@
 import { useState, useRef } from "react";
 import { useAuth } from "@/lib/auth-context";
 import { sanitizeAndLimit } from "@/lib/sanitize";
+import { uploadFile } from "@/lib/upload";
 import { NewsArticle } from "@/types";
 import {
   Newspaper,
@@ -78,7 +79,7 @@ export default function NewsPage() {
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
-  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -93,11 +94,19 @@ export default function NewsPage() {
     }
 
     setFormError("");
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      setImagePreview(event.target?.result as string);
-    };
-    reader.readAsDataURL(file);
+
+    // Upload to Supabase Storage
+    const url = await uploadFile(file, "news");
+    if (url) {
+      setImagePreview(url);
+    } else {
+      // Fallback to data URL if upload fails
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        setImagePreview(event.target?.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
   };
 
   const handleSubmit = (e: React.FormEvent) => {

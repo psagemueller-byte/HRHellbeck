@@ -2,6 +2,7 @@
 
 import { useState, useRef } from "react";
 import { useAuth } from "@/lib/auth-context";
+import { uploadFile } from "@/lib/upload";
 import {
   User,
   Mail,
@@ -79,7 +80,7 @@ export default function ProfilePage() {
     setEditing(false);
   };
 
-  const handleAvatarUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     setAvatarError("");
     const file = e.target.files?.[0];
     if (!file) return;
@@ -93,16 +94,25 @@ export default function ProfilePage() {
       return;
     }
 
-    const reader = new FileReader();
-    reader.onload = (ev) => {
-      const dataUrl = ev.target?.result as string;
-      if (dataUrl && dataUrl.startsWith("data:image/")) {
-        updateUser({ avatar: dataUrl });
-        setSaved(true);
-        setTimeout(() => setSaved(false), 3000);
-      }
-    };
-    reader.readAsDataURL(file);
+    // Upload to Supabase Storage
+    const url = await uploadFile(file, "avatars");
+    if (url) {
+      updateUser({ avatar: url });
+      setSaved(true);
+      setTimeout(() => setSaved(false), 3000);
+    } else {
+      // Fallback to data URL if upload fails (e.g. Supabase not configured)
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        const dataUrl = ev.target?.result as string;
+        if (dataUrl && dataUrl.startsWith("data:image/")) {
+          updateUser({ avatar: dataUrl });
+          setSaved(true);
+          setTimeout(() => setSaved(false), 3000);
+        }
+      };
+      reader.readAsDataURL(file);
+    }
 
     // Reset input so the same file can be selected again
     if (fileInputRef.current) fileInputRef.current.value = "";
