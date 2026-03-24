@@ -61,30 +61,51 @@ export async function POST(req: NextRequest) {
       where: { email: email.toLowerCase().trim() },
     });
 
-    if (existingUser) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Ein Nutzer mit dieser E-Mail-Adresse existiert bereits.",
-        },
-        { status: 409 }
-      );
-    }
+    let userId: string;
 
-    // Create user without password (can't log in until they set one)
-    const newUser = await prisma.user.create({
-      data: {
-        email: email.toLowerCase().trim(),
-        name: `${firstName} ${lastName}`.trim(),
-        firstName: firstName.trim(),
-        lastName: lastName.trim(),
-        position: position.trim(),
-        department: department.trim(),
-        phone: phone?.trim() || "",
-        role: userRole,
-        isActive: true,
-      },
-    });
+    if (existingUser) {
+      // If user exists but has no password (previous failed invite), update and re-invite
+      if (!existingUser.passwordHash) {
+        const updatedUser = await prisma.user.update({
+          where: { id: existingUser.id },
+          data: {
+            name: `${firstName} ${lastName}`.trim(),
+            firstName: firstName.trim(),
+            lastName: lastName.trim(),
+            position: position.trim(),
+            department: department.trim(),
+            phone: phone?.trim() || "",
+            role: userRole,
+            isActive: true,
+          },
+        });
+        userId = updatedUser.id;
+      } else {
+        return NextResponse.json(
+          {
+            success: false,
+            error: "Ein Nutzer mit dieser E-Mail-Adresse existiert bereits.",
+          },
+          { status: 409 }
+        );
+      }
+    } else {
+      // Create user without password (can't log in until they set one)
+      const newUser = await prisma.user.create({
+        data: {
+          email: email.toLowerCase().trim(),
+          name: `${firstName} ${lastName}`.trim(),
+          firstName: firstName.trim(),
+          lastName: lastName.trim(),
+          position: position.trim(),
+          department: department.trim(),
+          phone: phone?.trim() || "",
+          role: userRole,
+          isActive: true,
+        },
+      });
+      userId = newUser.id;
+    }
 
     // Generate invitation token (7 days validity)
     const token = crypto.randomBytes(32).toString("hex");
@@ -94,7 +115,7 @@ export async function POST(req: NextRequest) {
     await prisma.passwordResetToken.create({
       data: {
         token,
-        userId: newUser.id,
+        userId,
         expires,
       },
     });
@@ -104,7 +125,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      userId: newUser.id,
+      userId,
     });
   } catch (error) {
     console.error("Invitation error:", error);

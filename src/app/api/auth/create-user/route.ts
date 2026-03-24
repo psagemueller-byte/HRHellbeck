@@ -56,21 +56,45 @@ export async function POST(req: NextRequest) {
     const validRoles = ["admin", "autor", "benutzer"];
     const userRole = validRoles.includes(role) ? role : "benutzer";
 
+    const passwordHash = await bcrypt.hash(password, 12);
+
     // Check if email already exists
     const existingUser = await prisma.user.findUnique({
       where: { email: email.toLowerCase().trim() },
     });
 
     if (existingUser) {
+      // If user exists but has no password (e.g. from a previous invite), update them
+      if (!existingUser.passwordHash) {
+        const updatedUser = await prisma.user.update({
+          where: { id: existingUser.id },
+          data: {
+            name: `${firstName} ${lastName}`.trim(),
+            firstName: firstName.trim(),
+            lastName: lastName.trim(),
+            position: position.trim(),
+            department: department.trim(),
+            phone: phone?.trim() || "",
+            role: userRole,
+            isActive: true,
+            passwordHash,
+          },
+        });
+
+        return NextResponse.json({
+          success: true,
+          userId: updatedUser.id,
+          updated: true,
+        });
+      }
+
       return NextResponse.json(
         { success: false, error: "Ein Nutzer mit dieser E-Mail-Adresse existiert bereits." },
         { status: 409 }
       );
     }
 
-    // Hash password and create user
-    const passwordHash = await bcrypt.hash(password, 12);
-
+    // Create new user
     const newUser = await prisma.user.create({
       data: {
         email: email.toLowerCase().trim(),
