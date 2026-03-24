@@ -85,6 +85,17 @@ model User {
 }
 
 // ============================================
+// Departments (Org Chart)
+// ============================================
+
+model Department {
+  id     String @id @default(cuid())
+  name   String @unique
+  headId String @default("")
+  color  String @default("bg-gray-100 text-gray-700 border-gray-200")
+}
+
+// ============================================
 // Password Reset Token
 // ============================================
 

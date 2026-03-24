@@ -184,7 +184,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
     setUser(currentUser);
 
-    // Fetch all users from DB for admin list
+    // Fetch all users and departments from DB
     fetch("/api/users")
       .then((res) => res.json())
       .then((data) => {
@@ -208,18 +208,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             avatar: u.image as string || undefined,
           }));
           setAllUsers(dbUsers);
-          // Update current user with full DB data
           const meFromDb = dbUsers.find((u) => u.id === sessionUser.id);
           if (meFromDb) setUser(meFromDb);
         }
       })
       .catch(() => {
-        // Fallback: at least add session user to list
         setAllUsers((prev) => {
           if (prev.some((u) => u.id === currentUser.id)) return prev;
           return [...prev, currentUser];
         });
       });
+
+    fetch("/api/departments")
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.success && data.departments && data.departments.length > 0) {
+          setDepartments(data.departments);
+        }
+      })
+      .catch(() => {});
   }, [session.status, session.data]);
 
   // Handle unauthenticated state
@@ -387,13 +394,33 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (!cleanName) return { success: false, error: "Bitte einen Abteilungsnamen eingeben." };
     const exists = departments.some((d) => d.name.toLowerCase() === cleanName.toLowerCase());
     if (exists) return { success: false, error: "Eine Abteilung mit diesem Namen existiert bereits." };
-    const newDept: Department = {
-      id: `dept-${Date.now()}`,
-      name: cleanName,
-      headId: "",
-      color: color || "bg-gray-100 text-gray-700 border-gray-200",
-    };
-    setDepartments((prev) => [...prev, newDept]);
+
+    if (!MOCK_AUTH) {
+      // Persist to DB, then update local state with DB response
+      fetch("/api/departments", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: cleanName, color: color || "bg-gray-100 text-gray-700 border-gray-200" }),
+      })
+        .then((res) => res.json())
+        .then((data) => {
+          if (data.success && data.department) {
+            setDepartments((prev) => {
+              if (prev.some((d) => d.id === data.department.id)) return prev;
+              return [...prev, data.department];
+            });
+          }
+        })
+        .catch(() => {});
+    } else {
+      const newDept: Department = {
+        id: `dept-${Date.now()}`,
+        name: cleanName,
+        headId: "",
+        color: color || "bg-gray-100 text-gray-700 border-gray-200",
+      };
+      setDepartments((prev) => [...prev, newDept]);
+    }
     return { success: true };
   }, [departments]);
 
@@ -422,6 +449,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return updated;
       })
     );
+
+    if (!MOCK_AUTH) {
+      fetch("/api/departments", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: deptId, ...data }),
+      }).catch(() => {});
+    }
   }, []);
 
   const deleteDepartment = useCallback((deptId: string) => {
@@ -433,6 +468,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       )
     );
     setDepartments((prev) => prev.filter((d) => d.id !== deptId));
+
+    if (!MOCK_AUTH) {
+      fetch("/api/departments", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: deptId }),
+      }).catch(() => {});
+    }
   }, [departments]);
 
   const moveUserToDepartment = useCallback((userId: string, department: string, managerId?: string) => {
