@@ -50,7 +50,7 @@ function formatDateStr(year: number, month: number, day: number) {
 
 export default function KalenderPage() {
   const {
-    user, allUsers, shiftEntries, vacationRequests, addShift, deleteShift,
+    user, allUsers, departments, shiftEntries, vacationRequests, addShift, deleteShift,
     getShiftsForUser, addVacationRequest, hasRole, getVacationBalance,
   } = useAuth();
   const [currentMonth, setCurrentMonth] = useState(new Date().getMonth());
@@ -75,18 +75,23 @@ export default function KalenderPage() {
   const viewUserId = selectedUserId || user?.id || "";
   const viewUser = allUsers.find((u) => u.id === viewUserId);
 
+  const headedDeptNames = useMemo(() => {
+    if (!user) return new Set<string>();
+    return new Set(departments.filter((d) => d.headId === user.id).map((d) => d.name));
+  }, [user, departments]);
+
   const canManageShifts = useMemo(() => {
     if (!user) return false;
     if (user.role === "admin") return true;
     const targetUser = allUsers.find((u) => u.id === viewUserId);
-    return targetUser?.managerId === user.id;
-  }, [user, viewUserId, allUsers]);
+    return targetUser ? headedDeptNames.has(targetUser.department) : false;
+  }, [user, viewUserId, allUsers, headedDeptNames]);
 
   const manageableUsers = useMemo(() => {
     if (!user) return [];
     if (user.role === "admin") return allUsers.filter((u) => u.isActive);
-    return allUsers.filter((u) => u.isActive && (u.id === user.id || u.managerId === user.id));
-  }, [user, allUsers]);
+    return allUsers.filter((u) => u.isActive && (u.id === user.id || headedDeptNames.has(u.department)));
+  }, [user, allUsers, headedDeptNames]);
 
   const shifts = getShiftsForUser(viewUserId, currentMonth, currentYear);
 

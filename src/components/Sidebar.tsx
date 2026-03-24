@@ -40,11 +40,11 @@ const navItems: { href: string; label: string; icon: typeof LayoutDashboard; min
 
 export default function Sidebar() {
   const pathname = usePathname();
-  const { user, logout, hasRole, allUsers, getConversations, getPendingApprovalsCount } = useAuth();
+  const { user, logout, hasRole, allUsers, departments, getConversations, getPendingApprovalsCount } = useAuth();
   const conversations = getConversations();
   const totalUnread = conversations.reduce((sum, c) => sum + c.unreadCount, 0);
   const pendingApprovals = getPendingApprovalsCount();
-  const isManager = user?.role === "admin" || allUsers.some((u) => u.managerId === user?.id);
+  const isDepartmentHead = user?.role === "admin" || departments.some((d) => d.headId === user?.id);
 
   const roleInfo = user ? roleLabels[user.role] : null;
   const RoleBadgeIcon = roleInfo?.icon;
@@ -63,7 +63,7 @@ export default function Sidebar() {
       <nav className="flex-1 py-6 px-3">
         <ul className="space-y-1">
           {navItems
-            .filter((item) => hasRole(item.minRole) && (!item.managerOnly || isManager))
+            .filter((item) => hasRole(item.minRole) && (!item.managerOnly || isDepartmentHead))
             .map((item) => {
               const isActive = pathname === item.href;
               const Icon = item.icon;

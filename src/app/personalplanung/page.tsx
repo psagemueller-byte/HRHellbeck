@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { useAuth } from "@/lib/auth-context";
 import { GERMAN_HOLIDAYS } from "@/lib/holidays";
 import {
@@ -20,6 +20,7 @@ import {
   Check,
   Thermometer,
   Trash2,
+  Info,
 } from "lucide-react";
 import { ShiftType, SHIFT_TYPES } from "@/types";
 
@@ -58,6 +59,7 @@ export default function PersonalplanungPage() {
   const {
     user,
     allUsers,
+    departments,
     shiftEntries,
     vacationRequests,
     addShift,
@@ -80,15 +82,26 @@ export default function PersonalplanungPage() {
   const [formError, setFormError] = useState("");
   const [vacationConflicts, setVacationConflicts] = useState<string[]>([]);
   const [conflictEmployeeName, setConflictEmployeeName] = useState("");
+  const [unavailabilityNotices, setUnavailabilityNotices] = useState<{ name: string; type: string; dates: string }[]>([]);
+  const [showUnavailabilityPopup, setShowUnavailabilityPopup] = useState(false);
+  const unavailabilityChecked = useRef(false);
 
-  // Employees this user can manage
+  // Departments this user heads
+  const headedDepartments = useMemo(() => {
+    if (!user) return [];
+    return departments.filter((d) => d.headId === user.id);
+  }, [user, departments]);
+
+  const headedDeptNames = useMemo(() => new Set(headedDepartments.map((d) => d.name)), [headedDepartments]);
+
+  // Employees in headed departments (department-based, not person-based)
   const teamMembers = useMemo(() => {
     if (!user) return [];
     if (user.role === "admin") return allUsers.filter((u) => u.isActive && u.id !== user.id);
-    return allUsers.filter((u) => u.isActive && u.managerId === user.id);
-  }, [user, allUsers]);
+    return allUsers.filter((u) => u.isActive && u.id !== user.id && headedDeptNames.has(u.department));
+  }, [user, allUsers, headedDeptNames]);
 
-  const isManager = teamMembers.length > 0;
+  const isDepartmentHead = user?.role === "admin" || headedDepartments.length > 0;
 
   // Build shift/vacation map for all team members for the month
   const scheduleMap = useMemo(() => {
@@ -305,9 +318,61 @@ export default function PersonalplanungPage() {
 
   const selectedEmployeeData = allUsers.find((u) => u.id === selectedEmployee);
 
+  // Detect unavailable team members (vacation, sick) for today and upcoming 7 days
+  useEffect(() => {
+    if (unavailabilityChecked.current || teamMembers.length === 0) return;
+    unavailabilityChecked.current = true;
+
+    const today = new Date();
+    const notices: { name: string; type: string; dates: string }[] = [];
+
+    teamMembers.forEach((member) => {
+      // Check approved vacations overlapping today+7 days
+      vacationRequests.forEach((v) => {
+        if (v.userId !== member.id || v.status !== "genehmigt") return;
+        const start = new Date(v.startDate);
+        const end = new Date(v.endDate);
+        const checkEnd = new Date(today);
+        checkEnd.setDate(checkEnd.getDate() + 7);
+        if (start <= checkEnd && end >= today) {
+          const typeLabel = v.type === "sonderurlaub" ? "Sonderurlaub" : "Urlaub";
+          notices.push({
+            name: `${member.firstName} ${member.lastName}`,
+            type: typeLabel,
+            dates: `${start.toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit" })} – ${end.toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit" })}`,
+          });
+        }
+      });
+
+      // Check sick shifts for today+7 days
+      const sickDates: string[] = [];
+      shiftEntries.forEach((s) => {
+        if (s.userId !== member.id || s.type !== "krank") return;
+        const d = new Date(s.date);
+        const checkEnd = new Date(today);
+        checkEnd.setDate(checkEnd.getDate() + 7);
+        if (d >= today && d <= checkEnd) {
+          sickDates.push(d.toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit" }));
+        }
+      });
+      if (sickDates.length > 0) {
+        notices.push({
+          name: `${member.firstName} ${member.lastName}`,
+          type: "Krank",
+          dates: sickDates.length === 1 ? sickDates[0] : `${sickDates[0]} – ${sickDates[sickDates.length - 1]}`,
+        });
+      }
+    });
+
+    if (notices.length > 0) {
+      setUnavailabilityNotices(notices);
+      setShowUnavailabilityPopup(true);
+    }
+  }, [teamMembers, vacationRequests, shiftEntries]);
+
   if (!user) return null;
 
-  if (!isManager) {
+  if (!isDepartmentHead) {
     return (
       <div className="max-w-6xl mx-auto">
         <div className="bg-white rounded-xl border border-[var(--color-border)] p-12 text-center">
@@ -329,7 +394,7 @@ export default function PersonalplanungPage() {
             Personalplanung
           </h1>
           <p className="text-[var(--color-text-secondary)] mt-1">
-            Schichtplanung für dein Team — {teamMembers.length} Mitarbeiter
+            Schichtplanung {user?.role !== "admin" && headedDepartments.length > 0 ? `— ${headedDepartments.map((d) => d.name).join(", ")}` : ""} — {teamMembers.length} Mitarbeiter
           </p>
         </div>
       </div>
@@ -733,6 +798,65 @@ export default function PersonalplanungPage() {
                   Urlaubstage überspringen
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Unavailability notification popup */}
+      {showUnavailabilityPopup && unavailabilityNotices.length > 0 && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[60] p-4">
+          <div className="bg-white rounded-2xl w-full max-w-md overflow-hidden shadow-2xl">
+            <div className="bg-amber-500 px-6 py-5 flex items-center gap-4">
+              <div className="h-14 w-14 rounded-full bg-white/20 flex items-center justify-center flex-shrink-0">
+                <Info className="h-8 w-8 text-white" />
+              </div>
+              <div>
+                <h2 className="text-lg font-bold text-white">Verfügbarkeitshinweis</h2>
+                <p className="text-amber-100 text-sm mt-0.5">
+                  {unavailabilityNotices.length} Mitarbeiter nicht verfügbar
+                </p>
+              </div>
+            </div>
+
+            <div className="px-6 py-5">
+              <p className="text-sm text-[var(--color-text-secondary)] mb-4">
+                Folgende Mitarbeiter sind in den nächsten 7 Tagen nicht verfügbar:
+              </p>
+              <div className="space-y-2 max-h-64 overflow-y-auto">
+                {unavailabilityNotices.map((notice, idx) => (
+                  <div
+                    key={idx}
+                    className={`flex items-center justify-between px-4 py-3 rounded-lg border ${
+                      notice.type === "Krank"
+                        ? "bg-pink-50 border-pink-200"
+                        : "bg-green-50 border-green-200"
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      {notice.type === "Krank" ? (
+                        <Thermometer className="h-4 w-4 text-pink-600 flex-shrink-0" />
+                      ) : (
+                        <Palmtree className="h-4 w-4 text-green-600 flex-shrink-0" />
+                      )}
+                      <div>
+                        <p className="text-sm font-medium text-[var(--color-text-primary)]">{notice.name}</p>
+                        <p className={`text-xs ${notice.type === "Krank" ? "text-pink-600" : "text-green-600"}`}>
+                          {notice.type}
+                        </p>
+                      </div>
+                    </div>
+                    <span className="text-xs font-medium text-[var(--color-text-muted)]">{notice.dates}</span>
+                  </div>
+                ))}
+              </div>
+
+              <button
+                onClick={() => setShowUnavailabilityPopup(false)}
+                className="w-full mt-4 px-4 py-3 bg-[var(--color-primary-600)] hover:bg-[var(--color-primary-700)] text-white rounded-lg text-sm font-bold transition-colors"
+              >
+                Verstanden
+              </button>
             </div>
           </div>
         </div>
