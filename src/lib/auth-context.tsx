@@ -6,18 +6,32 @@ import { User, UserRole, USER_ROLES, NewsArticle, VacationRequest, VacationBalan
 import { mockUsers, mockNews, mockVacationRequests, mockChatMessages, mockDepartments, mockShiftEntries, mockDisruptionReports, mockHandoverProtocols, mockPasswordHashes } from "@/lib/mock-data";
 import { isValidEmail, sanitizeString } from "@/lib/sanitize";
 import { calculateWorkingDays } from "@/lib/holidays";
+import { hashPassword } from "@/lib/password-utils";
 
 const MOCK_AUTH = process.env.NEXT_PUBLIC_MOCK_AUTH === "true";
 
 const MAX_LOGIN_ATTEMPTS = 5;
 const LOCKOUT_DURATION_MS = 60_000;
-const PASSWORD_SALT = "hellbeck";
 
-async function hashPassword(password: string): Promise<string> {
-  const data = new TextEncoder().encode(`${PASSWORD_SALT}:${password}`);
-  const hashBuffer = await crypto.subtle.digest("SHA-256", data);
-  const hashArray = Array.from(new Uint8Array(hashBuffer));
-  return hashArray.map((b) => b.toString(16).padStart(2, "0")).join("");
+const STORAGE_KEY_PASSWORDS = "hr-portal-passwords";
+const STORAGE_KEY_USERS = "hr-portal-users";
+
+function loadFromStorage<T>(key: string): T | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const stored = localStorage.getItem(key);
+    if (!stored) return null;
+    return JSON.parse(stored);
+  } catch {
+    return null;
+  }
+}
+
+function saveToStorage(key: string, value: unknown): void {
+  if (typeof window === "undefined") return;
+  try {
+    localStorage.setItem(key, JSON.stringify(value));
+  } catch {}
 }
 
 interface AuthContextType {
@@ -34,8 +48,10 @@ interface AuthContextType {
   updateUser: (data: Partial<User>) => void;
   updateUserRole: (userId: string, role: UserRole) => void;
   toggleUserActive: (userId: string) => void;
-  addUser: (data: Omit<User, "id" | "isActive">) => { success: boolean; error?: string };
+  addUser: (data: Omit<User, "id" | "isActive">) => { success: boolean; error?: string; userId?: string };
   removeUser: (userId: string) => void;
+  setPasswordForUser: (userId: string, passwordHash: string) => void;
+  passwordHashes: Record<string, string>;
   hasRole: (requiredRole: UserRole | UserRole[]) => boolean;
   addDepartment: (name: string, color: string) => { success: boolean; error?: string };
   updateDepartment: (deptId: string, data: { name?: string; headId?: string; color?: string }) => void;
@@ -91,6 +107,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const session = useSession();
   const [user, setUser] = useState<User | null>(null);
   const [allUsers, setAllUsers] = useState<User[]>(mockUsers);
+  const [passwordHashes, setPasswordHashes] = useState<Record<string, string>>(mockPasswordHashes);
   const [departments, setDepartments] = useState<Department[]>(mockDepartments);
   const [news, setNews] = useState<NewsArticle[]>(mockNews);
   const [vacationRequests, setVacationRequests] = useState<VacationRequest[]>(mockVacationRequests);
@@ -101,6 +118,38 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [handoverProtocols, setHandoverProtocols] = useState<HandoverProtocol[]>(mockHandoverProtocols);
   const loginAttempts = useRef(0);
   const lockoutUntil = useRef(0);
+  const hydratedRef = useRef(false);
+
+  // Hydrate from localStorage on mount
+  useEffect(() => {
+    if (hydratedRef.current) return;
+    hydratedRef.current = true;
+
+    const storedUsers = loadFromStorage<User[]>(STORAGE_KEY_USERS);
+    if (storedUsers && storedUsers.length > 0) {
+      // Merge: stored users take precedence, add any mock users not in stored
+      const storedIds = new Set(storedUsers.map((u) => u.id));
+      const merged = [...storedUsers, ...mockUsers.filter((u) => !storedIds.has(u.id))];
+      setAllUsers(merged);
+    }
+
+    const storedHashes = loadFromStorage<Record<string, string>>(STORAGE_KEY_PASSWORDS);
+    if (storedHashes) {
+      setPasswordHashes((prev) => ({ ...prev, ...storedHashes }));
+    }
+  }, []);
+
+  // Persist users to localStorage
+  useEffect(() => {
+    if (!hydratedRef.current) return;
+    saveToStorage(STORAGE_KEY_USERS, allUsers);
+  }, [allUsers]);
+
+  // Persist password hashes to localStorage
+  useEffect(() => {
+    if (!hydratedRef.current) return;
+    saveToStorage(STORAGE_KEY_PASSWORDS, passwordHashes);
+  }, [passwordHashes]);
 
   // Sync Auth.js session → context user state (only in non-mock mode)
   useEffect(() => {
@@ -174,7 +223,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           return { success: false, error: "Dein Konto wurde deaktiviert. Kontaktiere hr@hellbeck.de." };
         }
 
-        const storedHash = mockPasswordHashes[foundUser.id];
+        const storedHash = passwordHashes[foundUser.id];
         if (storedHash) {
           const inputHash = await hashPassword(_password);
           if (inputHash !== storedHash) {
@@ -214,7 +263,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } catch {
       return { success: false, error: "Ein Fehler ist aufgetreten. Bitte versuche es erneut." };
     }
-  }, [allUsers]);
+  }, [allUsers, passwordHashes]);
 
   const logout = useCallback(() => {
     if (MOCK_AUTH) {
@@ -246,7 +295,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     );
   }, []);
 
-  const addUser = useCallback((data: Omit<User, "id" | "isActive">): { success: boolean; error?: string } => {
+  const addUser = useCallback((data: Omit<User, "id" | "isActive">): { success: boolean; error?: string; userId?: string } => {
     const emailExists = allUsers.some(
       (u) => u.email.toLowerCase() === data.email.toLowerCase()
     );
@@ -265,8 +314,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       isActive: true,
     };
     setAllUsers((users) => [...users, newUser]);
-    return { success: true };
+    return { success: true, userId: newUser.id };
   }, [allUsers]);
+
+  const setPasswordForUser = useCallback((userId: string, pwHash: string) => {
+    setPasswordHashes((prev) => ({ ...prev, [userId]: pwHash }));
+  }, []);
 
   const removeUser = useCallback((userId: string) => {
     setAllUsers((users) => users.filter((u) => u.id !== userId));
@@ -713,6 +766,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         toggleUserActive,
         addUser,
         removeUser,
+        setPasswordForUser,
+        passwordHashes,
         hasRole,
         addDepartment,
         updateDepartment,

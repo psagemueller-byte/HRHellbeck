@@ -27,6 +27,7 @@ import {
   isValidEmail,
   isValidPhone,
 } from "@/lib/sanitize";
+import { hashPassword, generatePassword } from "@/lib/password-utils";
 
 const roleConfig: Record<
   UserRole,
@@ -75,6 +76,7 @@ export default function AdminPage() {
     toggleUserActive,
     addUser,
     removeUser,
+    setPasswordForUser,
     moveUserToDepartment,
     getVacationBalance,
     updateUserVacationDays,
@@ -185,26 +187,56 @@ export default function AdminPage() {
     }
 
     if (isMockAuth) {
-      // Mock mode: in-memory only
-      const result = addUser({
-        ...cleaned,
-        street: "",
-        city: "",
-        zipCode: "",
-        country: "Deutschland",
-        birthDate: "",
-        startDate: new Date().toISOString().split("T")[0],
-      });
+      setInviteLoading(true);
+      try {
+        const result = addUser({
+          ...cleaned,
+          street: "",
+          city: "",
+          zipCode: "",
+          country: "Deutschland",
+          birthDate: "",
+          startDate: new Date().toISOString().split("T")[0],
+        });
 
-      if (result.success) {
-        setInviteSuccess(`${cleaned.firstName} ${cleaned.lastName} wurde erfolgreich eingeladen.`);
-        setInviteData(EMPTY_INVITE);
-        setTimeout(() => {
-          setInviteSuccess("");
-          setShowInviteForm(false);
-        }, 2000);
-      } else {
-        setInviteError(result.error || "Fehler beim Anlegen des Nutzers.");
+        if (result.success && result.userId) {
+          // Generate password, hash it, store it
+          const password = generatePassword();
+          const pwHash = await hashPassword(password);
+          setPasswordForUser(result.userId, pwHash);
+
+          // Send credentials email
+          try {
+            const res = await fetch("/api/email/send-credentials", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                to: cleaned.email,
+                firstName: cleaned.firstName,
+                lastName: cleaned.lastName,
+                password,
+              }),
+            });
+            const data = await res.json();
+            if (data.success) {
+              setInviteSuccess(`${cleaned.firstName} ${cleaned.lastName} angelegt. Zugangsdaten per E-Mail gesendet.`);
+            } else {
+              setInviteSuccess(`${cleaned.firstName} ${cleaned.lastName} angelegt. E-Mail-Versand fehlgeschlagen: ${data.error || "Unbekannter Fehler"}`);
+            }
+          } catch {
+            setInviteSuccess(`${cleaned.firstName} ${cleaned.lastName} angelegt. E-Mail konnte nicht gesendet werden.`);
+          }
+
+          setInviteData(EMPTY_INVITE);
+          setTimeout(() => {
+            setInviteSuccess("");
+            setShowInviteForm(false);
+          }, 3000);
+        } else {
+          setInviteError(result.error || "Fehler beim Anlegen des Nutzers.");
+        }
+      } finally {
+        setInviteLoading(false);
       }
     } else {
       // Production mode: call invite API → creates user in DB + sends email

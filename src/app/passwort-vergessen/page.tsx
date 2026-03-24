@@ -1,6 +1,8 @@
 "use client";
 
 import { useState } from "react";
+import { useAuth } from "@/lib/auth-context";
+import { hashPassword, generatePassword } from "@/lib/password-utils";
 import { ArrowLeft, Mail } from "lucide-react";
 import Link from "next/link";
 
@@ -9,12 +11,14 @@ export default function ForgotPasswordPage() {
   const [loading, setLoading] = useState(false);
   const [sent, setSent] = useState(false);
   const [error, setError] = useState("");
+  const { allUsers, setPasswordForUser } = useAuth();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
 
-    if (!email) {
+    const cleanEmail = email.trim().toLowerCase();
+    if (!cleanEmail) {
       setError("Bitte eine E-Mail-Adresse eingeben.");
       return;
     }
@@ -22,16 +26,40 @@ export default function ForgotPasswordPage() {
     setLoading(true);
 
     try {
-      const res = await fetch("/api/auth/forgot-password", {
+      const foundUser = allUsers.find((u) => u.email.toLowerCase() === cleanEmail);
+
+      if (!foundUser) {
+        // Don't reveal whether user exists — always show success
+        setSent(true);
+        return;
+      }
+
+      if (!foundUser.isActive) {
+        setError("Dieses Konto ist deaktiviert. Kontaktiere die HR-Abteilung.");
+        return;
+      }
+
+      const newPassword = generatePassword();
+      const pwHash = await hashPassword(newPassword);
+
+      const res = await fetch("/api/email/reset-password", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: email.trim().toLowerCase() }),
+        body: JSON.stringify({
+          to: foundUser.email,
+          firstName: foundUser.firstName,
+          newPassword,
+        }),
       });
 
-      if (res.ok) {
+      const data = await res.json();
+
+      if (data.success) {
+        // Only update hash if email was actually sent
+        setPasswordForUser(foundUser.id, pwHash);
         setSent(true);
       } else {
-        setError("Ein Fehler ist aufgetreten. Bitte versuche es erneut.");
+        setError(data.error || "E-Mail konnte nicht gesendet werden. Bitte versuche es erneut.");
       }
     } catch {
       setError("Verbindungsfehler. Bitte versuche es erneut.");
@@ -57,8 +85,8 @@ export default function ForgotPasswordPage() {
             Passwort vergessen?
           </h1>
           <p className="text-lg text-primary-200 leading-relaxed">
-            Kein Problem. Gib deine E-Mail-Adresse ein und wir senden dir einen
-            Link zum Zurücksetzen deines Passworts.
+            Kein Problem. Gib deine E-Mail-Adresse ein und wir senden dir ein
+            neues Passwort per E-Mail.
           </p>
         </div>
         <p className="text-sm text-primary-300">
@@ -96,8 +124,8 @@ export default function ForgotPasswordPage() {
               </h2>
               <p className="text-[var(--color-text-secondary)] mb-6">
                 Falls ein Konto mit der Adresse <strong>{email}</strong>{" "}
-                existiert, haben wir dir einen Link zum Zurücksetzen deines
-                Passworts gesendet. Prüfe auch deinen Spam-Ordner.
+                existiert, haben wir ein neues Passwort gesendet. Prüfe dein
+                Postfach und auch den Spam-Ordner.
               </p>
               <Link
                 href="/login"
@@ -113,8 +141,8 @@ export default function ForgotPasswordPage() {
                 Passwort zurücksetzen
               </h2>
               <p className="text-[var(--color-text-secondary)] mb-8">
-                Gib deine E-Mail-Adresse ein. Wir senden dir einen Link zum
-                Zurücksetzen deines Passworts.
+                Gib deine E-Mail-Adresse ein. Wir senden dir ein neues Passwort
+                per E-Mail.
               </p>
 
               <form onSubmit={handleSubmit} className="space-y-5">
@@ -152,7 +180,7 @@ export default function ForgotPasswordPage() {
                   {loading ? (
                     <div className="h-5 w-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
                   ) : (
-                    "Link senden"
+                    "Neues Passwort anfordern"
                   )}
                 </button>
               </form>
