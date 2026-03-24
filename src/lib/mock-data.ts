@@ -22,11 +22,29 @@ export const mockUsers: User[] = [
     startDate: "2019-01-01",
     isActive: true,
   },
+  {
+    id: "usr-002",
+    email: "p.sagemueller@googlemail.com",
+    firstName: "Patrick",
+    lastName: "Sagemüller",
+    position: "HR-Administrator",
+    department: "HR",
+    role: "admin",
+    phone: "",
+    street: "",
+    city: "Borchen",
+    zipCode: "",
+    country: "Deutschland",
+    birthDate: "1985-01-01",
+    startDate: "2019-01-01",
+    isActive: true,
+  },
 ];
 
 // Password hashes (SHA-256 of "hellbeck:{password}")
 export const mockPasswordHashes: Record<string, string> = {
   "usr-001": "011d7a4601b9913c24996b3a46c25b8e326cd6a76bbd0a4bdccbaba926614985",
+  "usr-002": "76571d92c88e55f118d96f36c394e28a12452288afc1ec342fcdb911ac6a50d4",
 };
 
 // Backwards-compatible default user
