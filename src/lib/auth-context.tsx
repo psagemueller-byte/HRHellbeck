@@ -184,49 +184,67 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
     setUser(currentUser);
 
-    // Fetch all users and departments from DB
-    fetch("/api/users")
-      .then((res) => res.json())
-      .then((data) => {
-        if (data.success && data.users) {
-          const dbUsers: User[] = data.users.map((u: Record<string, unknown>) => ({
-            id: u.id as string,
-            email: u.email as string || "",
-            firstName: u.firstName as string || "",
-            lastName: u.lastName as string || "",
-            position: u.position as string || "",
-            department: u.department as string || "Ohne Abteilung",
-            role: (u.role as UserRole) || "benutzer",
-            phone: u.phone as string || "",
-            street: "",
-            city: "",
-            zipCode: "",
-            country: "Deutschland",
-            birthDate: "",
-            startDate: "",
-            isActive: u.isActive as boolean ?? true,
-            avatar: u.image as string || undefined,
-          }));
-          setAllUsers(dbUsers);
-          const meFromDb = dbUsers.find((u) => u.id === sessionUser.id);
-          if (meFromDb) setUser(meFromDb);
-        }
-      })
-      .catch(() => {
-        setAllUsers((prev) => {
-          if (prev.some((u) => u.id === currentUser.id)) return prev;
-          return [...prev, currentUser];
-        });
-      });
+    // Fetch ALL data from DB in parallel
+    const mapDbUser = (u: Record<string, unknown>): User => ({
+      id: u.id as string,
+      email: u.email as string || "",
+      firstName: u.firstName as string || "",
+      lastName: u.lastName as string || "",
+      position: u.position as string || "",
+      department: u.department as string || "Ohne Abteilung",
+      role: (u.role as UserRole) || "benutzer",
+      phone: u.phone as string || "",
+      street: u.street as string || "",
+      city: u.city as string || "",
+      zipCode: u.zipCode as string || "",
+      country: u.country as string || "Deutschland",
+      birthDate: u.birthDate as string || "",
+      startDate: u.startDate as string || "",
+      managerId: u.managerId as string || undefined,
+      isActive: u.isActive as boolean ?? true,
+      avatar: u.image as string || undefined,
+      totalVacationDays: u.totalVacationDays as number ?? 30,
+    });
 
-    fetch("/api/departments")
-      .then((res) => res.json())
-      .then((data) => {
-        if (data.success && data.departments && data.departments.length > 0) {
-          setDepartments(data.departments);
-        }
-      })
-      .catch(() => {});
+    Promise.allSettled([
+      fetch("/api/users").then((r) => r.json()),
+      fetch("/api/departments").then((r) => r.json()),
+      fetch("/api/vacations").then((r) => r.json()),
+      fetch("/api/shifts").then((r) => r.json()),
+      fetch("/api/news").then((r) => r.json()),
+      fetch("/api/chat").then((r) => r.json()),
+      fetch("/api/disruptions").then((r) => r.json()),
+      fetch("/api/handovers").then((r) => r.json()),
+    ]).then(([usersRes, deptsRes, vacRes, shiftsRes, newsRes, chatRes, disruptRes, handoverRes]) => {
+      if (usersRes.status === "fulfilled" && usersRes.value.success) {
+        const dbUsers = usersRes.value.users.map(mapDbUser);
+        setAllUsers(dbUsers);
+        const meFromDb = dbUsers.find((u: User) => u.id === sessionUser.id);
+        if (meFromDb) setUser(meFromDb);
+      }
+      if (deptsRes.status === "fulfilled" && deptsRes.value.success && deptsRes.value.departments?.length > 0) {
+        setDepartments(deptsRes.value.departments);
+      }
+      if (vacRes.status === "fulfilled" && vacRes.value.success) {
+        if (vacRes.value.vacations?.length > 0) setVacationRequests(vacRes.value.vacations);
+        if (vacRes.value.cancelRequests?.length > 0) setVacationCancelRequests(vacRes.value.cancelRequests);
+      }
+      if (shiftsRes.status === "fulfilled" && shiftsRes.value.success && shiftsRes.value.shifts?.length > 0) {
+        setShiftEntries(shiftsRes.value.shifts);
+      }
+      if (newsRes.status === "fulfilled" && newsRes.value.success && newsRes.value.articles?.length > 0) {
+        setNews(newsRes.value.articles);
+      }
+      if (chatRes.status === "fulfilled" && chatRes.value.success && chatRes.value.messages?.length > 0) {
+        setChatMessages(chatRes.value.messages);
+      }
+      if (disruptRes.status === "fulfilled" && disruptRes.value.success && disruptRes.value.reports?.length > 0) {
+        setDisruptionReports(disruptRes.value.reports);
+      }
+      if (handoverRes.status === "fulfilled" && handoverRes.value.success && handoverRes.value.protocols?.length > 0) {
+        setHandoverProtocols(handoverRes.value.protocols);
+      }
+    });
   }, [session.status, session.data]);
 
   // Handle unauthenticated state
@@ -330,6 +348,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setAllUsers((users) => users.map((u) => (u.id === updated.id ? updated : u)));
       return updated;
     });
+    if (!MOCK_AUTH) {
+      fetch("/api/users/profile", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      }).catch(() => {});
+    }
   }, []);
 
   const updateUserRole = useCallback((userId: string, role: UserRole) => {
@@ -516,31 +541,61 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         };
       })
     );
+    if (!MOCK_AUTH) {
+      fetch("/api/news", { method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "toggle-like", id: newsId }),
+      }).catch(() => {});
+    }
   }, [user]);
 
   const addNews = useCallback((data: Omit<NewsArticle, "id" | "publishedAt" | "likes">) => {
-    const newArticle: NewsArticle = {
-      ...data,
-      id: `news-${Date.now()}`,
-      publishedAt: new Date().toISOString().split("T")[0],
-      likes: [],
-    };
-    setNews((prev) => [newArticle, ...prev]);
+    if (!MOCK_AUTH) {
+      fetch("/api/news", { method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "create", ...data }),
+      }).then((r) => r.json()).then((res) => {
+        if (res.success && res.article) {
+          setNews((prev) => [res.article, ...prev]);
+        }
+      }).catch(() => {});
+    } else {
+      const newArticle: NewsArticle = {
+        ...data,
+        id: `news-${Date.now()}`,
+        publishedAt: new Date().toISOString().split("T")[0],
+        likes: [],
+      };
+      setNews((prev) => [newArticle, ...prev]);
+    }
   }, []);
 
   const deleteNews = useCallback((newsId: string) => {
     setNews((prev) => prev.filter((n) => n.id !== newsId));
+    if (!MOCK_AUTH) {
+      fetch("/api/news", { method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "delete", id: newsId }),
+      }).catch(() => {});
+    }
   }, []);
 
   // --- Vacation Management ---
   const addVacationRequest = useCallback((req: Omit<VacationRequest, "id" | "createdAt" | "status">) => {
-    const newReq: VacationRequest = {
-      ...req,
-      id: `vac-${Date.now()}`,
-      createdAt: new Date().toISOString().split("T")[0],
-      status: "ausstehend",
-    };
-    setVacationRequests((prev) => [newReq, ...prev]);
+    if (!MOCK_AUTH) {
+      fetch("/api/vacations", { method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "create", ...req }),
+      }).then((r) => r.json()).then((res) => {
+        if (res.success && res.vacation) {
+          setVacationRequests((prev) => [res.vacation, ...prev]);
+        }
+      }).catch(() => {});
+    } else {
+      const newReq: VacationRequest = {
+        ...req,
+        id: `vac-${Date.now()}`,
+        createdAt: new Date().toISOString().split("T")[0],
+        status: "ausstehend",
+      };
+      setVacationRequests((prev) => [newReq, ...prev]);
+    }
   }, []);
 
   const canApproveVacation = useCallback((request: VacationRequest): boolean => {
@@ -560,6 +615,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           : req
       )
     );
+    if (!MOCK_AUTH) {
+      fetch("/api/vacations", { method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "approve", id: requestId }),
+      }).catch(() => {});
+    }
   }, [user]);
 
   const rejectVacation = useCallback((requestId: string) => {
@@ -571,6 +631,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           : req
       )
     );
+    if (!MOCK_AUTH) {
+      fetch("/api/vacations", { method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "reject", id: requestId }),
+      }).catch(() => {});
+    }
   }, [user]);
 
   // --- Vacation Balance (dynamic) ---
@@ -615,15 +680,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     );
     if (alreadyRequested) return;
 
-    const newRequest: VacationCancelRequest = {
-      id: `cancel-${Date.now()}`,
-      vacationId,
-      userId: user.id,
-      reason: sanitizeString(reason).slice(0, 500),
-      status: "ausstehend",
-      createdAt: new Date().toISOString(),
-    };
-    setVacationCancelRequests((prev) => [newRequest, ...prev]);
+    if (!MOCK_AUTH) {
+      fetch("/api/vacations", { method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "cancel-request", vacationId, userId: user.id, reason: sanitizeString(reason).slice(0, 500) }),
+      }).then((r) => r.json()).then((res) => {
+        if (res.success && res.cancelRequest) {
+          setVacationCancelRequests((prev) => [res.cancelRequest, ...prev]);
+        }
+      }).catch(() => {});
+    } else {
+      const newRequest: VacationCancelRequest = {
+        id: `cancel-${Date.now()}`,
+        vacationId,
+        userId: user.id,
+        reason: sanitizeString(reason).slice(0, 500),
+        status: "ausstehend",
+        createdAt: new Date().toISOString(),
+      };
+      setVacationCancelRequests((prev) => [newRequest, ...prev]);
+    }
   }, [user, vacationRequests, vacationCancelRequests]);
 
   const approveVacationCancel = useCallback((cancelId: string) => {
@@ -645,6 +720,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           : v
       )
     );
+    if (!MOCK_AUTH) {
+      fetch("/api/vacations", { method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "cancel-approve", cancelId }),
+      }).catch(() => {});
+    }
   }, [user, vacationCancelRequests]);
 
   const rejectVacationCancel = useCallback((cancelId: string) => {
@@ -656,20 +736,35 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           : cr
       )
     );
+    if (!MOCK_AUTH) {
+      fetch("/api/vacations", { method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "cancel-reject", cancelId }),
+      }).catch(() => {});
+    }
   }, [user]);
 
   // --- Chat ---
   const sendMessage = useCallback((receiverId: string, content: string) => {
     if (!user) return;
-    const newMsg: ChatMessage = {
-      id: `msg-${Date.now()}`,
-      senderId: user.id,
-      receiverId,
-      content,
-      timestamp: new Date().toISOString(),
-      read: false,
-    };
-    setChatMessages((prev) => [...prev, newMsg]);
+    if (!MOCK_AUTH) {
+      fetch("/api/chat", { method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "send", receiverId, content }),
+      }).then((r) => r.json()).then((res) => {
+        if (res.success && res.message) {
+          setChatMessages((prev) => [...prev, res.message]);
+        }
+      }).catch(() => {});
+    } else {
+      const newMsg: ChatMessage = {
+        id: `msg-${Date.now()}`,
+        senderId: user.id,
+        receiverId,
+        content,
+        timestamp: new Date().toISOString(),
+        read: false,
+      };
+      setChatMessages((prev) => [...prev, newMsg]);
+    }
   }, [user]);
 
   const markMessagesRead = useCallback((partnerId: string) => {
@@ -681,6 +776,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           : msg
       )
     );
+    if (!MOCK_AUTH) {
+      fetch("/api/chat", { method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "mark-read", partnerId }),
+      }).catch(() => {});
+    }
   }, [user]);
 
   const getConversations = useCallback(() => {
@@ -735,22 +835,42 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const shiftCounter = useRef(0);
   const addShift = useCallback((data: Omit<ShiftEntry, "id">) => {
     if (!SHIFT_TYPES.includes(data.type)) return;
-    shiftCounter.current += 1;
-    const newShift: ShiftEntry = {
-      ...data,
-      id: `shift-${Date.now()}-${shiftCounter.current}`,
-    };
-    setShiftEntries((prev) => [...prev, newShift]);
+    if (!MOCK_AUTH) {
+      fetch("/api/shifts", { method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "create", ...data }),
+      }).then((r) => r.json()).then((res) => {
+        if (res.success && res.shift) {
+          setShiftEntries((prev) => [...prev, res.shift]);
+        }
+      }).catch(() => {});
+    } else {
+      shiftCounter.current += 1;
+      const newShift: ShiftEntry = {
+        ...data,
+        id: `shift-${Date.now()}-${shiftCounter.current}`,
+      };
+      setShiftEntries((prev) => [...prev, newShift]);
+    }
   }, []);
 
   const updateShift = useCallback((shiftId: string, data: Partial<ShiftEntry>) => {
     setShiftEntries((prev) =>
       prev.map((s) => (s.id === shiftId ? { ...s, ...data } : s))
     );
+    if (!MOCK_AUTH) {
+      fetch("/api/shifts", { method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "update", id: shiftId, ...data }),
+      }).catch(() => {});
+    }
   }, []);
 
   const deleteShift = useCallback((shiftId: string) => {
     setShiftEntries((prev) => prev.filter((s) => s.id !== shiftId));
+    if (!MOCK_AUTH) {
+      fetch("/api/shifts", { method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "delete", id: shiftId }),
+      }).catch(() => {});
+    }
   }, []);
 
   const getShiftsForUser = useCallback((userId: string, month: number, year: number) => {
@@ -783,25 +903,38 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // --- Disruption Management ---
   const addDisruption = useCallback((data: Omit<DisruptionReport, "id" | "createdAt" | "status">) => {
     if (!DISRUPTION_CATEGORIES.includes(data.category)) return;
-    const newReport: DisruptionReport = {
-      ...data,
-      id: `dis-${Date.now()}`,
-      createdAt: new Date().toISOString(),
-      status: "offen",
-    };
-    setDisruptionReports((prev) => [newReport, ...prev]);
-    if (data.assignedTo && user) {
-      const newMsg: ChatMessage = {
-        id: `msg-${Date.now()}-dis`,
-        senderId: user.id,
-        receiverId: data.assignedTo,
-        content: `Neue Störungsmeldung: ${data.title} (${data.category})`,
-        timestamp: new Date().toISOString(),
-        read: false,
+    if (!MOCK_AUTH) {
+      fetch("/api/disruptions", { method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "create", ...data }),
+      }).then((r) => r.json()).then((res) => {
+        if (res.success && res.report) {
+          setDisruptionReports((prev) => [res.report, ...prev]);
+        }
+      }).catch(() => {});
+      if (data.assignedTo && user) {
+        sendMessage(data.assignedTo, `Neue Störungsmeldung: ${data.title} (${data.category})`);
+      }
+    } else {
+      const newReport: DisruptionReport = {
+        ...data,
+        id: `dis-${Date.now()}`,
+        createdAt: new Date().toISOString(),
+        status: "offen",
       };
-      setChatMessages((prev) => [...prev, newMsg]);
+      setDisruptionReports((prev) => [newReport, ...prev]);
+      if (data.assignedTo && user) {
+        const newMsg: ChatMessage = {
+          id: `msg-${Date.now()}-dis`,
+          senderId: user.id,
+          receiverId: data.assignedTo,
+          content: `Neue Störungsmeldung: ${data.title} (${data.category})`,
+          timestamp: new Date().toISOString(),
+          read: false,
+        };
+        setChatMessages((prev) => [...prev, newMsg]);
+      }
     }
-  }, [user]);
+  }, [user, sendMessage]);
 
   const updateDisruptionStatus = useCallback((disruptionId: string, status: DisruptionReport["status"]) => {
     const validStatuses: DisruptionReport["status"][] = ["offen", "in_bearbeitung", "erledigt"];
@@ -809,6 +942,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setDisruptionReports((prev) =>
       prev.map((d) => (d.id === disruptionId ? { ...d, status } : d))
     );
+    if (!MOCK_AUTH) {
+      fetch("/api/disruptions", { method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "update-status", id: disruptionId, status }),
+      }).catch(() => {});
+    }
   }, []);
 
   const getDisruptionsForUser = useCallback((userId: string) => {
@@ -820,12 +958,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // --- Handover Protocol Management ---
   const addHandover = useCallback((data: Omit<HandoverProtocol, "id" | "createdAt">) => {
     if (!SHIFT_TYPES.includes(data.shiftType)) return;
-    const newProtocol: HandoverProtocol = {
-      ...data,
-      id: `hand-${Date.now()}`,
-      createdAt: new Date().toISOString(),
-    };
-    setHandoverProtocols((prev) => [newProtocol, ...prev]);
+    if (!MOCK_AUTH) {
+      fetch("/api/handovers", { method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      }).then((r) => r.json()).then((res) => {
+        if (res.success && res.protocol) {
+          setHandoverProtocols((prev) => [res.protocol, ...prev]);
+        }
+      }).catch(() => {});
+    } else {
+      const newProtocol: HandoverProtocol = {
+        ...data,
+        id: `hand-${Date.now()}`,
+        createdAt: new Date().toISOString(),
+      };
+      setHandoverProtocols((prev) => [newProtocol, ...prev]);
+    }
   }, []);
 
   const getHandoversForUser = useCallback((userId: string) => {

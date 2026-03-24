@@ -12,18 +12,6 @@ export async function GET() {
       );
     }
 
-    // Only admins can list all users
-    const requestingUser = await prisma.user.findUnique({
-      where: { id: session.user.id },
-    });
-
-    if (!requestingUser || requestingUser.role !== "admin") {
-      return NextResponse.json(
-        { success: false, error: "Keine Berechtigung." },
-        { status: 403 }
-      );
-    }
-
     const users = await prisma.user.findMany({
       select: {
         id: true,
@@ -37,6 +25,14 @@ export async function GET() {
         role: true,
         isActive: true,
         image: true,
+        street: true,
+        city: true,
+        zipCode: true,
+        country: true,
+        birthDate: true,
+        startDate: true,
+        managerId: true,
+        totalVacationDays: true,
       },
       orderBy: { name: "asc" },
     });

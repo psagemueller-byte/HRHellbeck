@@ -82,6 +82,16 @@ model User {
   accounts            Account[]
   sessions            Session[]
   passwordResetTokens PasswordResetToken[]
+  vacationRequests    VacationRequest[]
+  shiftEntries        ShiftEntry[]        @relation("ShiftUser")
+  shiftsCreated       ShiftEntry[]        @relation("ShiftCreator")
+  newsArticles        NewsArticle[]
+  sentMessages        ChatMessage[]       @relation("MessageSender")
+  receivedMessages    ChatMessage[]       @relation("MessageReceiver")
+  disruptionReports   DisruptionReport[]  @relation("DisruptionReporter")
+  assignedDisruptions DisruptionReport[]  @relation("DisruptionAssignee")
+  handoverProtocols   HandoverProtocol[]
+  vacationCancelReqs  VacationCancelRequest[]
 }
 
 // ============================================
@@ -108,4 +118,136 @@ model PasswordResetToken {
   createdAt DateTime @default(now())
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// ============================================
+// Vacation Requests
+// ============================================
+
+model VacationRequest {
+  id         String   @id @default(cuid())
+  userId     String
+  startDate  String
+  endDate    String
+  days       Int
+  type       String   @default("urlaub") // urlaub, sonderurlaub, unbezahlt
+  status     String   @default("ausstehend") // ausstehend, genehmigt, abgelehnt
+  reason     String?
+  approvedBy String?
+  approvedAt String?
+  createdAt  DateTime @default(now())
+
+  user          User                    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  cancelRequest VacationCancelRequest[]
+}
+
+// ============================================
+// Vacation Cancel Requests
+// ============================================
+
+model VacationCancelRequest {
+  id         String   @id @default(cuid())
+  vacationId String
+  userId     String
+  reason     String
+  status     String   @default("ausstehend") // ausstehend, genehmigt, abgelehnt
+  decidedBy  String?
+  decidedAt  String?
+  createdAt  DateTime @default(now())
+
+  vacation VacationRequest @relation(fields: [vacationId], references: [id], onDelete: Cascade)
+  user     User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// ============================================
+// Shift Entries (Personalplanung)
+// ============================================
+
+model ShiftEntry {
+  id        String  @id @default(cuid())
+  userId    String
+  date      String
+  type      String  // frueh, spaet, nacht, frei, feiertag, urlaub, sonderurlaub, krank
+  startTime String?
+  endTime   String?
+  note      String?
+  createdBy String
+
+  user    User @relation("ShiftUser", fields: [userId], references: [id], onDelete: Cascade)
+  creator User @relation("ShiftCreator", fields: [createdBy], references: [id], onDelete: Cascade)
+}
+
+// ============================================
+// News Articles
+// ============================================
+
+model NewsArticle {
+  id          String   @id @default(cuid())
+  title       String
+  excerpt     String
+  content     String   @db.Text
+  author      String
+  authorId    String
+  category    String   // unternehmen, team, event, hr
+  imageUrl    String?  @db.Text
+  likes       String[] @default([])
+  publishedAt DateTime @default(now())
+
+  authorUser User @relation(fields: [authorId], references: [id], onDelete: Cascade)
+}
+
+// ============================================
+// Chat Messages
+// ============================================
+
+model ChatMessage {
+  id         String   @id @default(cuid())
+  senderId   String
+  receiverId String
+  content    String   @db.Text
+  read       Boolean  @default(false)
+  timestamp  DateTime @default(now())
+
+  sender   User @relation("MessageSender", fields: [senderId], references: [id], onDelete: Cascade)
+  receiver User @relation("MessageReceiver", fields: [receiverId], references: [id], onDelete: Cascade)
+
+  @@index([senderId, receiverId])
+}
+
+// ============================================
+// Disruption Reports
+// ============================================
+
+model DisruptionReport {
+  id          String   @id @default(cuid())
+  reporterId  String
+  category    String   // maschinenstillstand, materialfehler, etc.
+  title       String
+  description String   @db.Text
+  location    String?
+  imageUrls   String[] @default([])
+  status      String   @default("offen") // offen, in_bearbeitung, erledigt
+  assignedTo  String?
+  createdAt   DateTime @default(now())
+
+  reporter User  @relation("DisruptionReporter", fields: [reporterId], references: [id], onDelete: Cascade)
+  assignee User? @relation("DisruptionAssignee", fields: [assignedTo], references: [id], onDelete: SetNull)
+}
+
+// ============================================
+// Handover Protocols
+// ============================================
+
+model HandoverProtocol {
+  id            String   @id @default(cuid())
+  authorId      String
+  shiftDate     String
+  shiftType     String
+  machineStatus String   @db.Text
+  openTasks     String   @db.Text
+  incidents     String   @db.Text
+  notes         String   @db.Text
+  createdAt     DateTime @default(now())
+
+  author User @relation(fields: [authorId], references: [id], onDelete: Cascade)
 }
