@@ -1,5 +1,7 @@
 import { Resend } from "resend";
 import { NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
+import bcrypt from "bcryptjs";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
@@ -9,6 +11,16 @@ export async function POST(request: Request) {
 
     if (!to || !firstName || !newPassword) {
       return NextResponse.json({ error: "Fehlende Felder." }, { status: 400 });
+    }
+
+    // Update password hash in database
+    const passwordHash = await bcrypt.hash(newPassword, 12);
+    const user = await prisma.user.findUnique({ where: { email: to.toLowerCase() } });
+    if (user) {
+      await prisma.user.update({
+        where: { id: user.id },
+        data: { passwordHash },
+      });
     }
 
     const { error } = await resend.emails.send({
