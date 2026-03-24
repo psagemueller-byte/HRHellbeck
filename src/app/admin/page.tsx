@@ -20,6 +20,9 @@ import {
   X,
   Mail,
   Palmtree,
+  Eye,
+  EyeOff,
+  KeyRound,
 } from "lucide-react";
 import {
   sanitizeAndLimit,
@@ -89,6 +92,9 @@ export default function AdminPage() {
   const [inviteError, setInviteError] = useState("");
   const [inviteSuccess, setInviteSuccess] = useState("");
   const [inviteLoading, setInviteLoading] = useState(false);
+  const [createMode, setCreateMode] = useState<"invite" | "manual">("invite");
+  const [manualPassword, setManualPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [confirmAction, setConfirmAction] = useState<{
     userId: string;
     action: "role" | "toggle" | "remove";
@@ -186,6 +192,22 @@ export default function AdminPage() {
       return;
     }
 
+    if (createMode === "manual" && manualPassword.length < 8) {
+      setInviteError("Das Passwort muss mindestens 8 Zeichen lang sein.");
+      return;
+    }
+
+    const resetForm = () => {
+      setInviteData(EMPTY_INVITE);
+      setManualPassword("");
+      setShowPassword(false);
+      setTimeout(() => {
+        setInviteSuccess("");
+        setShowInviteForm(false);
+        setCreateMode("invite");
+      }, 3000);
+    };
+
     if (isMockAuth) {
       setInviteLoading(true);
       try {
@@ -200,38 +222,37 @@ export default function AdminPage() {
         });
 
         if (result.success && result.userId) {
-          // Generate password, hash it, store it
-          const password = generatePassword();
+          const password = createMode === "manual" ? manualPassword : generatePassword();
           const pwHash = await hashPassword(password);
           setPasswordForUser(result.userId, pwHash);
 
-          // Send credentials email
-          try {
-            const res = await fetch("/api/email/send-credentials", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                to: cleaned.email,
-                firstName: cleaned.firstName,
-                lastName: cleaned.lastName,
-                password,
-              }),
-            });
-            const data = await res.json();
-            if (data.success) {
-              setInviteSuccess(`${cleaned.firstName} ${cleaned.lastName} angelegt. Zugangsdaten per E-Mail gesendet.`);
-            } else {
-              setInviteSuccess(`${cleaned.firstName} ${cleaned.lastName} angelegt. E-Mail-Versand fehlgeschlagen: ${data.error || "Unbekannter Fehler"}`);
+          if (createMode === "invite") {
+            // Send credentials email
+            try {
+              const res = await fetch("/api/email/send-credentials", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  to: cleaned.email,
+                  firstName: cleaned.firstName,
+                  lastName: cleaned.lastName,
+                  password,
+                }),
+              });
+              const data = await res.json();
+              if (data.success) {
+                setInviteSuccess(`${cleaned.firstName} ${cleaned.lastName} angelegt. Zugangsdaten per E-Mail gesendet.`);
+              } else {
+                setInviteSuccess(`${cleaned.firstName} ${cleaned.lastName} angelegt. E-Mail-Versand fehlgeschlagen: ${data.error || "Unbekannter Fehler"}`);
+              }
+            } catch {
+              setInviteSuccess(`${cleaned.firstName} ${cleaned.lastName} angelegt. E-Mail konnte nicht gesendet werden.`);
             }
-          } catch {
-            setInviteSuccess(`${cleaned.firstName} ${cleaned.lastName} angelegt. E-Mail konnte nicht gesendet werden.`);
+          } else {
+            setInviteSuccess(`${cleaned.firstName} ${cleaned.lastName} angelegt. Passwort wurde gesetzt.`);
           }
 
-          setInviteData(EMPTY_INVITE);
-          setTimeout(() => {
-            setInviteSuccess("");
-            setShowInviteForm(false);
-          }, 3000);
+          resetForm();
         } else {
           setInviteError(result.error || "Fehler beim Anlegen des Nutzers.");
         }
@@ -239,13 +260,18 @@ export default function AdminPage() {
         setInviteLoading(false);
       }
     } else {
-      // Production mode: call invite API → creates user in DB + sends email
+      // Production mode
       setInviteLoading(true);
       try {
-        const res = await fetch("/api/auth/invite", {
+        const apiUrl = createMode === "manual" ? "/api/auth/create-user" : "/api/auth/invite";
+        const body = createMode === "manual"
+          ? { ...cleaned, password: manualPassword }
+          : cleaned;
+
+        const res = await fetch(apiUrl, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(cleaned),
+          body: JSON.stringify(body),
         });
 
         const data = await res.json();
@@ -261,14 +287,14 @@ export default function AdminPage() {
             birthDate: "",
             startDate: new Date().toISOString().split("T")[0],
           });
-          setInviteSuccess(`Einladung an ${cleaned.email} gesendet.`);
-          setInviteData(EMPTY_INVITE);
-          setTimeout(() => {
-            setInviteSuccess("");
-            setShowInviteForm(false);
-          }, 3000);
+          setInviteSuccess(
+            createMode === "manual"
+              ? `${cleaned.firstName} ${cleaned.lastName} angelegt. Passwort wurde gesetzt.`
+              : `Einladung an ${cleaned.email} gesendet.`
+          );
+          resetForm();
         } else {
-          setInviteError(data.error || "Fehler beim Einladen des Nutzers.");
+          setInviteError(data.error || "Fehler beim Anlegen des Nutzers.");
         }
       } catch {
         setInviteError("Verbindungsfehler. Bitte versuche es erneut.");
@@ -524,10 +550,14 @@ export default function AdminPage() {
             <div className="flex items-center justify-between mb-6">
               <div className="flex items-center gap-3">
                 <div className="h-10 w-10 rounded-lg bg-[var(--color-primary-50)] flex items-center justify-center">
-                  <UserPlus className="h-5 w-5 text-[var(--color-primary-600)]" />
+                  {createMode === "invite" ? (
+                    <UserPlus className="h-5 w-5 text-[var(--color-primary-600)]" />
+                  ) : (
+                    <KeyRound className="h-5 w-5 text-[var(--color-primary-600)]" />
+                  )}
                 </div>
                 <h2 className="text-lg font-bold text-[var(--color-text-primary)]">
-                  Nutzer einladen
+                  {createMode === "invite" ? "Nutzer einladen" : "Nutzer anlegen"}
                 </h2>
               </div>
               <button
@@ -536,10 +566,41 @@ export default function AdminPage() {
                   setInviteError("");
                   setInviteSuccess("");
                   setInviteData(EMPTY_INVITE);
+                  setCreateMode("invite");
+                  setManualPassword("");
+                  setShowPassword(false);
                 }}
                 className="h-8 w-8 rounded-lg hover:bg-[var(--color-surface-tertiary)] flex items-center justify-center"
               >
                 <X className="h-5 w-5 text-[var(--color-text-secondary)]" />
+              </button>
+            </div>
+
+            {/* Mode toggle */}
+            <div className="flex rounded-lg border border-[var(--color-border)] mb-4 overflow-hidden">
+              <button
+                type="button"
+                onClick={() => { setCreateMode("invite"); setManualPassword(""); setShowPassword(false); }}
+                className={`flex-1 flex items-center justify-center gap-2 px-3 py-2 text-sm font-medium transition-colors ${
+                  createMode === "invite"
+                    ? "bg-[var(--color-primary-600)] text-white"
+                    : "bg-white text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-tertiary)]"
+                }`}
+              >
+                <Mail className="h-4 w-4" />
+                Per E-Mail einladen
+              </button>
+              <button
+                type="button"
+                onClick={() => setCreateMode("manual")}
+                className={`flex-1 flex items-center justify-center gap-2 px-3 py-2 text-sm font-medium transition-colors ${
+                  createMode === "manual"
+                    ? "bg-[var(--color-primary-600)] text-white"
+                    : "bg-white text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-tertiary)]"
+                }`}
+              >
+                <KeyRound className="h-4 w-4" />
+                Manuell anlegen
               </button>
             </div>
 
@@ -663,6 +724,35 @@ export default function AdminPage() {
                 </select>
               </div>
 
+              {createMode === "manual" && (
+                <div>
+                  <label className="block text-sm font-medium text-[var(--color-text-primary)] mb-1.5">
+                    Passwort *
+                  </label>
+                  <div className="relative">
+                    <KeyRound className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[var(--color-text-muted)]" />
+                    <input
+                      type={showPassword ? "text" : "password"}
+                      value={manualPassword}
+                      onChange={(e) => setManualPassword(e.target.value)}
+                      placeholder="Passwort vergeben"
+                      maxLength={128}
+                      className="w-full pl-10 pr-10 py-2.5 border border-[var(--color-border)] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary-500)]"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)]"
+                    >
+                      {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </button>
+                  </div>
+                  <p className="text-xs text-[var(--color-text-muted)] mt-1">
+                    Min. 8 Zeichen. Der Nutzer kann sich direkt mit diesem Passwort anmelden.
+                  </p>
+                </div>
+              )}
+
               <div className="flex gap-3 pt-2">
                 <button
                   type="button"
@@ -671,6 +761,9 @@ export default function AdminPage() {
                     setInviteError("");
                     setInviteSuccess("");
                     setInviteData(EMPTY_INVITE);
+                    setCreateMode("invite");
+                    setManualPassword("");
+                    setShowPassword(false);
                   }}
                   className="flex-1 px-4 py-2.5 border border-[var(--color-border)] rounded-lg text-sm font-medium text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-tertiary)] transition-colors"
                 >
@@ -685,8 +778,8 @@ export default function AdminPage() {
                     <div className="h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
                   ) : (
                     <>
-                      <UserPlus className="h-4 w-4" />
-                      Einladen
+                      {createMode === "invite" ? <UserPlus className="h-4 w-4" /> : <KeyRound className="h-4 w-4" />}
+                      {createMode === "invite" ? "Einladen" : "Anlegen"}
                     </>
                   )}
                 </button>
