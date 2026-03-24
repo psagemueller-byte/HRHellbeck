@@ -9,6 +9,7 @@ const PUBLIC_ROUTES = [
   "/passwort-zuruecksetzen",
   "/konto-einrichten",
   "/api/auth",
+  "/api/seed-admin",
 ];
 
 export async function middleware(req: NextRequest) {

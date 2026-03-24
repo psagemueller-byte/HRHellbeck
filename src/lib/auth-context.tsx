@@ -256,11 +256,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         redirect: false,
       });
 
-      if (result?.error) {
+      if (!result?.ok || result?.error) {
+        console.error("[Auth] signIn result:", result);
         return { success: false, error: "Ungültige Anmeldedaten." };
       }
       return { success: true };
-    } catch {
+    } catch (err) {
+      console.error("[Auth] signIn exception:", err);
       return { success: false, error: "Ein Fehler ist aufgetreten. Bitte versuche es erneut." };
     }
   }, [allUsers, passwordHashes]);
