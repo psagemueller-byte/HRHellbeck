@@ -205,26 +205,50 @@ export default function VacationPage() {
   return (
     <div className="max-w-6xl mx-auto">
       {/* Header */}
-      <div className="flex items-center justify-between mb-8">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 md:mb-8">
         <div>
-          <h1 className="text-2xl font-bold text-[var(--color-text-primary)]">
-            Urlaubsverwaltung
-          </h1>
-          <p className="text-[var(--color-text-secondary)] mt-1">
-            Beantrage Urlaub und behalte deine Tage im Blick
+          <p className="text-[10px] font-medium text-[var(--color-text-secondary)] uppercase tracking-[0.5px] mb-1">
+            Personalwesen / Abwesenheiten
           </p>
+          <h1 className="text-[28px] md:text-2xl font-bold text-[var(--color-text-primary)] tracking-[-0.7px]">
+            Urlaubsplanung
+          </h1>
         </div>
         <button
           onClick={() => setShowForm(true)}
-          className="flex items-center gap-2 bg-[var(--color-primary-600)] hover:bg-[var(--color-primary-700)] text-white font-medium py-2.5 px-4 rounded-lg transition-colors"
+          className="flex items-center gap-2 bg-gradient-to-r from-[var(--color-primary-600)] to-[var(--color-primary-400)] hover:opacity-90 text-white font-bold py-3 px-6 rounded-md transition-all shadow-sm text-sm"
         >
           <Plus className="h-4 w-4" />
-          Urlaub beantragen
+          Neuen Antrag stellen
         </button>
       </div>
 
-      {/* Balance cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-8">
+      {/* Mobile: Vacation balance hero card */}
+      <div className="md:hidden bg-white rounded-lg shadow-[0px_24px_40px_rgba(27,28,28,0.04)] p-8 mb-6 relative overflow-hidden">
+        <div className="absolute -top-8 -right-8 w-32 h-32 rounded-bl-[100px] bg-[rgba(201,230,255,0.2)]" />
+        <div className="flex items-end justify-between mb-8">
+          <div>
+            <p className="text-sm font-medium text-[var(--color-text-secondary)] mb-1">
+              Verbleibender Urlaubsanspruch
+            </p>
+            <div className="flex items-baseline gap-2">
+              <span className="text-[60px] font-black text-[var(--color-primary-600)] tracking-[-3px] leading-none">
+                {balance.remaining}
+              </span>
+              <span className="text-xl font-bold text-[var(--color-primary-400)] uppercase tracking-[2px]">
+                Tage
+              </span>
+            </div>
+          </div>
+          <div className="text-right text-xs text-[var(--color-text-faint)]">
+            <p>Geplant: {balance.planned} Tage</p>
+            <p>Gesamturlaub: {balance.total} Tage</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Desktop: Balance cards */}
+      <div className="hidden md:grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-8">
         <div className="bg-white rounded-xl border border-[var(--color-border)] p-5">
           <div className="flex items-center gap-3 mb-3">
             <div className="h-10 w-10 rounded-lg bg-blue-100 flex items-center justify-center">

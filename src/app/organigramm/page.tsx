@@ -245,23 +245,35 @@ export default function OrganigrammPage() {
   return (
     <div className="max-w-7xl mx-auto">
       {/* Header */}
-      <div className="flex items-center justify-between mb-8">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 md:mb-8">
         <div>
-          <h1 className="text-2xl font-bold text-[var(--color-text-primary)] flex items-center gap-3">
-            <Network className="h-7 w-7 text-[var(--color-primary-600)]" />
+          <p className="text-[12px] font-bold text-[var(--color-text-secondary)] uppercase tracking-[0.6px] mb-1">
+            Unternehmensstruktur
+          </p>
+          <h1 className="text-[28px] sm:text-[36px] md:text-2xl font-extrabold text-[var(--color-text-primary)] tracking-[-0.9px] flex items-center gap-3">
+            <Network className="h-6 w-6 md:h-7 md:w-7 text-[var(--color-primary-600)] hidden md:block" />
             Organigramm
           </h1>
-          <p className="text-[var(--color-text-secondary)] mt-1">
+          <p className="text-sm md:text-base text-[var(--color-text-secondary)] mt-1 hidden md:block">
             Abteilungen verwalten und Mitarbeiter per Drag & Drop zuordnen
           </p>
         </div>
         <button
           onClick={() => { setShowAddDept(true); setDeptError(""); setNewDeptName(""); }}
-          className="flex items-center gap-2 bg-[var(--color-primary-600)] hover:bg-[var(--color-primary-700)] text-white font-medium py-2.5 px-4 rounded-lg transition-colors"
+          className="flex items-center gap-2 bg-[var(--color-primary-600)] hover:bg-[var(--color-primary-700)] text-white font-medium py-2.5 px-4 rounded-lg transition-colors text-sm"
         >
           <Plus className="h-4 w-4" />
-          Abteilung erstellen
+          <span className="hidden sm:inline">Abteilung erstellen</span>
+          <span className="sm:hidden">Neu</span>
         </button>
+      </div>
+
+      {/* Mobile: Search */}
+      <div className="md:hidden mb-6 relative">
+        <div className="bg-[var(--color-surface-dim)] rounded-lg flex items-center px-4 py-3.5">
+          <Network className="h-4.5 w-4.5 text-[var(--color-text-body)] opacity-50 mr-3" />
+          <span className="text-base text-[var(--color-text-body)] opacity-50">Mitarbeiter oder Abteilung suchen...</span>
+        </div>
       </div>
 
       {/* Stats */}

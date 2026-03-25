@@ -300,13 +300,16 @@ export default function AdminPage() {
   return (
     <div className="max-w-6xl mx-auto">
       {/* Header */}
-      <div className="flex items-center justify-between mb-8">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 md:mb-8">
         <div>
-          <h1 className="text-2xl font-bold text-[var(--color-text-primary)] flex items-center gap-3">
-            <Shield className="h-7 w-7 text-[var(--color-primary-600)]" />
+          <p className="text-[10px] font-bold text-[var(--color-text-secondary)] uppercase tracking-[0.6px] mb-1 md:hidden">
+            System
+          </p>
+          <h1 className="text-xl md:text-2xl font-bold text-[var(--color-text-primary)] flex items-center gap-3">
+            <Shield className="h-6 w-6 md:h-7 md:w-7 text-[var(--color-primary-600)]" />
             Administration
           </h1>
-          <p className="text-[var(--color-text-secondary)] mt-1">
+          <p className="text-sm md:text-base text-[var(--color-text-secondary)] mt-1">
             Nutzerverwaltung — Rollen und Zugriffsrechte verwalten
           </p>
         </div>

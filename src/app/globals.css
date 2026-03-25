@@ -1,27 +1,42 @@
 @import "tailwindcss";
 
 @theme {
-  --color-primary-50: #f0f4ff;
-  --color-primary-100: #dbe4ff;
-  --color-primary-200: #bac8ff;
-  --color-primary-300: #91a7ff;
-  --color-primary-400: #748ffc;
-  --color-primary-500: #5c7cfa;
-  --color-primary-600: #4c6ef5;
-  --color-primary-700: #4263eb;
-  --color-primary-800: #3b5bdb;
-  --color-primary-900: #364fc7;
+  /* Hellbeck Brand Colors */
+  --color-primary-50: #e6f2f8;
+  --color-primary-100: #c2e4fc;
+  --color-primary-200: #c9e6ff;
+  --color-primary-300: #80c4e8;
+  --color-primary-400: #009ee2;
+  --color-primary-500: #0080bf;
+  --color-primary-600: #006492;
+  --color-primary-700: #005580;
+  --color-primary-800: #00456a;
+  --color-primary-900: #003550;
 
-  --color-accent-500: #22c55e;
-  --color-accent-600: #16a34a;
+  --color-accent-500: #009ee2;
+  --color-accent-600: #006492;
 
+  /* Surfaces (from Figma) */
   --color-surface: #ffffff;
-  --color-surface-secondary: #f8fafc;
-  --color-surface-tertiary: #f1f5f9;
+  --color-surface-secondary: #fbf9f8;
+  --color-surface-tertiary: #f6f3f2;
+  --color-surface-muted: #f0eded;
+  --color-surface-dim: #eae8e7;
   --color-border: #e2e8f0;
-  --color-text-primary: #0f172a;
-  --color-text-secondary: #475569;
-  --color-text-muted: #94a3b8;
+  --color-border-light: rgba(190, 200, 210, 0.15);
+
+  /* Text */
+  --color-text-primary: #1b1c1c;
+  --color-text-secondary: #416277;
+  --color-text-body: #3e4850;
+  --color-text-muted: #575f65;
+  --color-text-faint: #6e7881;
+  --color-text-placeholder: #94a3b8;
+
+  /* Status */
+  --color-status-success: #10b981;
+  --color-status-warning: #fbbf24;
+  --color-status-error: #ba1a1a;
 }
 
 body {

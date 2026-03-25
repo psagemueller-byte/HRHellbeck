@@ -61,11 +61,14 @@ export default function DashboardPage() {
   return (
     <div className="max-w-6xl mx-auto">
       {/* Header */}
-      <div className="mb-8">
-        <h1 className="text-2xl font-bold text-[var(--color-text-primary)]">
+      <div className="mb-6 md:mb-8">
+        <p className="text-[12px] font-bold text-[var(--color-text-secondary)] uppercase tracking-[0.6px] mb-1 md:hidden">
+          Dashboard
+        </p>
+        <h1 className="text-xl md:text-2xl font-bold text-[var(--color-text-primary)]">
           {greeting()}, {user?.firstName}!
         </h1>
-        <p className="text-[var(--color-text-secondary)] mt-1">
+        <p className="text-sm md:text-base text-[var(--color-text-secondary)] mt-1">
           Hier ist dein Überblick für heute.
         </p>
       </div>

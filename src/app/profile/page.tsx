@@ -133,12 +133,15 @@ export default function ProfilePage() {
 
   return (
     <div className="max-w-4xl mx-auto">
-      <div className="flex items-center justify-between mb-8">
+      <div className="flex items-center justify-between mb-6 md:mb-8">
         <div>
-          <h1 className="text-2xl font-bold text-[var(--color-text-primary)]">
+          <p className="text-[10px] font-bold text-[var(--color-text-secondary)] uppercase tracking-[0.6px] mb-1 md:hidden">
+            Personalwesen
+          </p>
+          <h1 className="text-xl md:text-2xl font-bold text-[var(--color-text-primary)]">
             Meine Daten
           </h1>
-          <p className="text-[var(--color-text-secondary)] mt-1">
+          <p className="text-sm md:text-base text-[var(--color-text-secondary)] mt-1">
             Verwalte deine persönlichen Informationen
           </p>
         </div>
@@ -184,7 +187,7 @@ export default function ProfilePage() {
 
       {/* Profile header card */}
       <div className="bg-white rounded-xl border border-[var(--color-border)] p-6 mb-6">
-        <div className="flex items-center gap-5">
+        <div className="flex flex-col sm:flex-row items-center gap-5">
           {/* Avatar with upload */}
           <div className="relative group flex-shrink-0">
             {user.avatar ? (

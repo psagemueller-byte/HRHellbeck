@@ -112,8 +112,11 @@ export default function ChatPage() {
     <div className="max-w-6xl mx-auto">
       {/* Header */}
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-[var(--color-text-primary)] flex items-center gap-3">
-          <MessageSquare className="h-7 w-7 text-[var(--color-primary-600)]" />
+        <p className="text-[10px] font-bold text-[var(--color-text-secondary)] uppercase tracking-[0.6px] mb-1 md:hidden">
+          Kommunikation
+        </p>
+        <h1 className="text-2xl md:text-2xl font-bold text-[var(--color-text-primary)] flex items-center gap-3">
+          <MessageSquare className="h-7 w-7 text-[var(--color-primary-600)] hidden md:block" />
           Nachrichten
           {totalUnread > 0 && (
             <span className="bg-[var(--color-primary-600)] text-white text-xs font-bold px-2 py-0.5 rounded-full">
@@ -121,12 +124,12 @@ export default function ChatPage() {
             </span>
           )}
         </h1>
-        <p className="text-[var(--color-text-secondary)] mt-1">
+        <p className="text-[var(--color-text-secondary)] mt-1 hidden md:block">
           Kommuniziere direkt mit deinen Kolleg:innen
         </p>
       </div>
 
-      <div className="bg-white rounded-xl border border-[var(--color-border)] flex h-[600px] overflow-hidden">
+      <div className="bg-white rounded-xl border border-[var(--color-border)] flex h-[calc(100vh-12rem)] md:h-[600px] overflow-hidden">
         {/* Sidebar - Conversations */}
         <div className={`w-80 border-r border-[var(--color-border)] flex flex-col flex-shrink-0 ${selectedPartnerId ? "hidden md:flex" : "flex"} ${!selectedPartnerId ? "flex-1 md:flex-initial" : ""}`}>
           {/* Conversation header */}

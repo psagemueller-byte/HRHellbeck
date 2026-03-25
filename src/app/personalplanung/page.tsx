@@ -387,14 +387,17 @@ export default function PersonalplanungPage() {
   return (
     <div className="max-w-full mx-auto px-4">
       {/* Header */}
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-[var(--color-text-primary)] flex items-center gap-3">
-            <CalendarRange className="h-7 w-7 text-[var(--color-primary-600)]" />
+          <p className="text-[12px] font-bold text-[var(--color-text-secondary)] uppercase tracking-[0.6px] mb-1">
             Personalplanung
+          </p>
+          <h1 className="text-[28px] md:text-2xl font-bold text-[var(--color-text-primary)] tracking-[-0.7px] flex items-center gap-3">
+            <CalendarRange className="h-6 w-6 md:h-7 md:w-7 text-[var(--color-primary-600)] hidden md:block" />
+            Mein Schichtplan
           </h1>
-          <p className="text-[var(--color-text-secondary)] mt-1">
-            Schichtplanung {user?.role !== "admin" && headedDepartments.length > 0 ? `— ${headedDepartments.map((d) => d.name).join(", ")}` : ""} — {teamMembers.length} Mitarbeiter
+          <p className="text-sm md:text-base text-[var(--color-text-secondary)] mt-1">
+            {user?.role !== "admin" && headedDepartments.length > 0 ? `${headedDepartments.map((d) => d.name).join(", ")} — ` : ""}{teamMembers.length} Mitarbeiter
           </p>
         </div>
       </div>

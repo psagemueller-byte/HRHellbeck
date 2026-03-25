@@ -16,6 +16,8 @@ import {
   Trash2,
   ImagePlus,
   PenLine,
+  ArrowRight,
+  Quote,
 } from "lucide-react";
 
 const VALID_CATEGORIES = ["unternehmen", "team", "event", "hr"] as const;
@@ -26,13 +28,6 @@ const categoryIcons: Record<string, typeof Newspaper> = {
   team: Users,
   event: PartyPopper,
   hr: Newspaper,
-};
-
-const categoryColors: Record<string, string> = {
-  unternehmen: "bg-blue-100 text-blue-700",
-  team: "bg-green-100 text-green-700",
-  event: "bg-purple-100 text-purple-700",
-  hr: "bg-amber-100 text-amber-700",
 };
 
 const categoryLabels: Record<string, string> = {
@@ -52,6 +47,33 @@ function formatDate(dateStr: string) {
     year: "numeric",
   });
 }
+
+// Static "Kurz notiert" items for the sidebar widget
+const kurzNotiertItems = [
+  {
+    category: "HR",
+    title: "Neue Gleitzeitregelung ab April",
+    description: "Die Kernarbeitszeit wird auf 10:00–14:00 Uhr verkürzt.",
+  },
+  {
+    category: "IT",
+    title: "Systemwartung am Wochenende",
+    description: "Am 29.03. wird das Intranet von 22–06 Uhr gewartet.",
+  },
+  {
+    category: "Event",
+    title: "Sommerfest-Planung gestartet",
+    description: "Ideen und Vorschläge bitte bis 15. April einreichen.",
+  },
+];
+
+// Static employee pulse quote
+const employeePulse = {
+  quote: "Die neue Teamstruktur hat unsere Zusammenarbeit deutlich verbessert – ich fühle mich besser eingebunden.",
+  name: "Maria Schneider",
+  role: "Produktentwicklung",
+  initials: "MS",
+};
 
 export default function NewsPage() {
   const { user, news, toggleNewsLike, addNews, deleteNews, hasRole } = useAuth();
@@ -95,12 +117,10 @@ export default function NewsPage() {
 
     setFormError("");
 
-    // Upload to Supabase Storage
     const url = await uploadFile(file, "news");
     if (url) {
       setImagePreview(url);
     } else {
-      // Fallback to data URL if upload fails
       const reader = new FileReader();
       reader.onload = (event) => {
         setImagePreview(event.target?.result as string);
@@ -154,31 +174,37 @@ export default function NewsPage() {
     setConfirmDelete(null);
   };
 
+  const featuredArticle = news.length > 0 ? news[0] : null;
+  const remainingArticles = news.length > 1 ? news.slice(1) : [];
+
   return (
-    <div className="max-w-4xl mx-auto">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-8">
-        <div>
-          <h1 className="text-2xl font-bold text-[var(--color-text-primary)] flex items-center gap-3">
-            <Newspaper className="h-7 w-7 text-[var(--color-primary-600)]" />
-            Unternehmensnews
-          </h1>
-          <p className="text-[var(--color-text-secondary)] mt-1">
-            Neuigkeiten und Ankündigungen aus dem Unternehmen
-          </p>
+    <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-0">
+      {/* ───── Page Header ───── */}
+      <div className="mb-8 md:mb-12">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <p className="text-[12px] font-bold uppercase tracking-[0.6px] text-[var(--color-text-secondary)] mb-2">
+              Company Update
+            </p>
+            <h1 className="text-[30px] sm:text-[36px] font-extrabold text-[var(--color-text-primary)] tracking-[-1.8px] leading-[1.1]">
+              Aktuelle News
+            </h1>
+            <div className="w-24 h-1 rounded-full bg-[var(--color-primary-600)] mt-4" />
+          </div>
+          {canCreate && (
+            <button
+              onClick={() => { resetForm(); setShowEditor(true); }}
+              className="flex items-center gap-2 bg-[var(--color-primary-600)] hover:bg-[var(--color-primary-700)] text-white font-medium py-2.5 px-4 rounded-lg transition-colors text-sm shrink-0"
+            >
+              <Plus className="h-4 w-4" />
+              <span className="hidden sm:inline">Beitrag erstellen</span>
+              <span className="sm:hidden">Neu</span>
+            </button>
+          )}
         </div>
-        {canCreate && (
-          <button
-            onClick={() => { resetForm(); setShowEditor(true); }}
-            className="flex items-center gap-2 bg-[var(--color-primary-600)] hover:bg-[var(--color-primary-700)] text-white font-medium py-2.5 px-4 rounded-lg transition-colors"
-          >
-            <Plus className="h-4 w-4" />
-            Beitrag erstellen
-          </button>
-        )}
       </div>
 
-      {/* Editor Modal */}
+      {/* ───── Editor Modal ───── */}
       {showEditor && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto p-6">
@@ -344,7 +370,7 @@ export default function NewsPage() {
         </div>
       )}
 
-      {/* Delete confirmation */}
+      {/* ───── Delete Confirmation Modal ───── */}
       {confirmDelete && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl w-full max-w-sm p-6 text-center">
@@ -375,7 +401,7 @@ export default function NewsPage() {
         </div>
       )}
 
-      {/* News list */}
+      {/* ───── Empty State ───── */}
       {news.length === 0 ? (
         <div className="bg-white rounded-xl border border-[var(--color-border)] p-12 text-center">
           <Newspaper className="h-12 w-12 text-[var(--color-text-muted)] mx-auto mb-3 opacity-50" />
@@ -392,86 +418,277 @@ export default function NewsPage() {
           )}
         </div>
       ) : (
-        <div className="space-y-4">
-          {news.map((article) => {
-            const Icon = categoryIcons[article.category] || Newspaper;
-            const isLiked = user ? article.likes.includes(user.id) : false;
-            return (
-              <article
-                key={article.id}
-                className="bg-white rounded-xl border border-[var(--color-border)] overflow-hidden hover:border-[var(--color-primary-200)] transition-colors"
-              >
-                {/* Image */}
-                {article.imageUrl && (
-                  <div className="w-full h-56 bg-[var(--color-surface-tertiary)]">
-                    <img
-                      src={article.imageUrl}
-                      alt={article.title}
-                      className="w-full h-full object-cover"
-                    />
-                  </div>
-                )}
+        <>
+          {/* ───── Featured Article + Sidebar ───── */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8 mb-10 md:mb-14">
+            {/* Featured Card */}
+            {featuredArticle && (
+              <div className="lg:col-span-2">
+                <FeaturedCard
+                  article={featuredArticle}
+                  user={user}
+                  isAdmin={isAdmin}
+                  onLike={() => toggleNewsLike(featuredArticle.id)}
+                  onDelete={() => setConfirmDelete(featuredArticle.id)}
+                />
+              </div>
+            )}
 
-                <div className="p-5">
-                  <div className="flex items-start gap-4">
-                    <div className="h-10 w-10 rounded-lg bg-[var(--color-surface-tertiary)] flex items-center justify-center flex-shrink-0">
-                      <Icon className="h-5 w-5 text-[var(--color-text-secondary)]" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-1">
-                        <span
-                          className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${categoryColors[article.category]}`}
-                        >
-                          {categoryLabels[article.category]}
-                        </span>
-                        <span className="text-xs text-[var(--color-text-muted)]">
-                          {formatDate(article.publishedAt)}
-                        </span>
-                      </div>
-                      <h3 className="text-base font-semibold text-[var(--color-text-primary)] mb-1">
-                        {article.title}
-                      </h3>
-                      <p className="text-sm text-[var(--color-text-secondary)] leading-relaxed mb-1">
-                        {article.excerpt}
+            {/* Sidebar */}
+            <div className="flex flex-col gap-6">
+              {/* Kurz notiert */}
+              <div className="bg-[var(--color-surface-tertiary)] rounded-lg p-5 sm:p-6">
+                <h2 className="text-[20px] font-bold text-[var(--color-primary-600)] mb-4">
+                  Kurz notiert
+                </h2>
+                <div className="space-y-4">
+                  {kurzNotiertItems.map((item, i) => (
+                    <div key={i} className="border-l-4 border-[#c2e4fc] pl-4">
+                      <p className="text-[10px] font-bold uppercase tracking-wide text-[var(--color-text-secondary)] mb-0.5">
+                        {item.category}
                       </p>
-                      <p className="text-sm text-[var(--color-text-muted)] leading-relaxed">
-                        {article.content}
+                      <p className="text-[16px] font-bold text-[var(--color-text-primary)] leading-snug">
+                        {item.title}
                       </p>
-                      <div className="flex items-center justify-between mt-3">
-                        <p className="text-xs text-[var(--color-text-muted)]">
-                          Von {article.author}
-                        </p>
-                        <div className="flex items-center gap-2">
-                          <button
-                            onClick={() => toggleNewsLike(article.id)}
-                            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-all ${
-                              isLiked
-                                ? "bg-blue-100 text-blue-700 hover:bg-blue-200"
-                                : "bg-[var(--color-surface-tertiary)] text-[var(--color-text-muted)] hover:bg-gray-200 hover:text-[var(--color-text-secondary)]"
-                            }`}
-                          >
-                            <ThumbsUp className={`h-3.5 w-3.5 ${isLiked ? "fill-blue-700" : ""}`} />
-                            {article.likes.length > 0 && <span>{article.likes.length}</span>}
-                          </button>
-                          {isAdmin && (
-                            <button
-                              onClick={() => setConfirmDelete(article.id)}
-                              className="flex items-center gap-1 px-2.5 py-1.5 rounded-full text-xs font-medium bg-[var(--color-surface-tertiary)] text-[var(--color-text-muted)] hover:bg-red-50 hover:text-red-600 transition-all"
-                              title="Beitrag löschen"
-                            >
-                              <Trash2 className="h-3.5 w-3.5" />
-                            </button>
-                          )}
-                        </div>
-                      </div>
+                      <p className="text-[12px] text-[var(--color-text-body)] mt-0.5 leading-relaxed">
+                        {item.description}
+                      </p>
                     </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Employee Pulse */}
+              <div className="bg-white border border-[var(--color-border)] rounded-lg p-5 sm:p-6">
+                <p className="text-[12px] font-bold uppercase tracking-[0.6px] text-[var(--color-text-secondary)] mb-3">
+                  Employee Pulse
+                </p>
+                <Quote className="h-5 w-5 text-[var(--color-primary-600)] mb-2 opacity-40" />
+                <p className="text-[18px] text-[var(--color-text-primary)] leading-relaxed mb-4">
+                  {employeePulse.quote}
+                </p>
+                <div className="flex items-center gap-3">
+                  <div className="h-8 w-8 rounded-full bg-[#c2e4fc] flex items-center justify-center shrink-0">
+                    <span className="text-xs font-bold text-[var(--color-primary-600)]">
+                      {employeePulse.initials}
+                    </span>
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold text-[var(--color-text-primary)] leading-tight">
+                      {employeePulse.name}
+                    </p>
+                    <p className="text-xs text-[var(--color-text-muted)]">
+                      {employeePulse.role}
+                    </p>
                   </div>
                 </div>
-              </article>
-            );
-          })}
-        </div>
+              </div>
+            </div>
+          </div>
+
+          {/* ───── Weitere Meldungen ───── */}
+          {remainingArticles.length > 0 && (
+            <section>
+              <h2 className="text-[24px] font-bold text-[var(--color-text-primary)] mb-6">
+                Weitere Meldungen
+              </h2>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+                {remainingArticles.map((article) => (
+                  <SecondaryCard
+                    key={article.id}
+                    article={article}
+                    user={user}
+                    isAdmin={isAdmin}
+                    onLike={() => toggleNewsLike(article.id)}
+                    onDelete={() => setConfirmDelete(article.id)}
+                  />
+                ))}
+              </div>
+            </section>
+          )}
+        </>
       )}
     </div>
+  );
+}
+
+/* ══════════════════════════════════════════════
+   Featured Card (first article, hero style)
+   ══════════════════════════════════════════════ */
+function FeaturedCard({
+  article,
+  user,
+  isAdmin,
+  onLike,
+  onDelete,
+}: {
+  article: NewsArticle;
+  user: { id: string } | null;
+  isAdmin: boolean;
+  onLike: () => void;
+  onDelete: () => void;
+}) {
+  const isLiked = user ? article.likes.includes(user.id) : false;
+
+  return (
+    <article className="bg-white rounded-lg shadow-sm overflow-hidden h-full flex flex-col">
+      {/* Hero image */}
+      {article.imageUrl ? (
+        <div className="w-full h-48 sm:h-56 md:h-64 bg-[var(--color-surface-tertiary)]">
+          <img
+            src={article.imageUrl}
+            alt={article.title}
+            className="w-full h-full object-cover"
+          />
+        </div>
+      ) : (
+        <div className="w-full h-48 sm:h-56 md:h-64 bg-gradient-to-br from-[var(--color-primary-600)] to-[var(--color-primary-400)] flex items-center justify-center">
+          <Newspaper className="h-16 w-16 text-white/30" />
+        </div>
+      )}
+
+      {/* Content */}
+      <div className="p-6 sm:p-7 md:p-8 flex flex-col flex-1">
+        <div className="flex items-center gap-3 mb-3">
+          <span className="inline-flex items-center px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wide bg-[var(--color-primary-600)] text-white">
+            {categoryLabels[article.category]}
+          </span>
+          <span className="text-[12px] font-medium text-[var(--color-text-muted)]">
+            {formatDate(article.publishedAt)}
+          </span>
+        </div>
+
+        <h2 className="text-[24px] sm:text-[28px] md:text-[30px] font-bold text-[var(--color-text-primary)] tracking-[-0.75px] leading-tight mb-3">
+          {article.title}
+        </h2>
+
+        <p className="text-[16px] sm:text-[18px] text-[var(--color-text-body)] leading-relaxed mb-2">
+          {article.excerpt}
+        </p>
+        <p className="text-sm text-[var(--color-text-muted)] leading-relaxed mb-6 line-clamp-3">
+          {article.content}
+        </p>
+
+        <div className="mt-auto flex items-center justify-between gap-4">
+          <button
+            className="inline-flex items-center gap-2 bg-gradient-to-r from-[var(--color-primary-600)] to-[var(--color-primary-400)] text-white text-sm font-medium rounded-md px-6 py-3 hover:opacity-90 transition-opacity"
+          >
+            Artikel lesen
+            <ArrowRight className="h-4 w-4" />
+          </button>
+
+          <div className="flex items-center gap-2">
+            <button
+              onClick={onLike}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-all ${
+                isLiked
+                  ? "bg-blue-100 text-blue-700 hover:bg-blue-200"
+                  : "bg-[var(--color-surface-tertiary)] text-[var(--color-text-muted)] hover:bg-gray-200 hover:text-[var(--color-text-secondary)]"
+              }`}
+            >
+              <ThumbsUp className={`h-3.5 w-3.5 ${isLiked ? "fill-blue-700" : ""}`} />
+              {article.likes.length > 0 && <span>{article.likes.length}</span>}
+            </button>
+            {isAdmin && (
+              <button
+                onClick={onDelete}
+                className="flex items-center gap-1 px-2.5 py-1.5 rounded-full text-xs font-medium bg-[var(--color-surface-tertiary)] text-[var(--color-text-muted)] hover:bg-red-50 hover:text-red-600 transition-all"
+                title="Beitrag löschen"
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+              </button>
+            )}
+          </div>
+        </div>
+
+        <p className="text-xs text-[var(--color-text-muted)] mt-4">
+          Von {article.author}
+        </p>
+      </div>
+    </article>
+  );
+}
+
+/* ══════════════════════════════════════════════
+   Secondary Card (remaining articles)
+   ══════════════════════════════════════════════ */
+function SecondaryCard({
+  article,
+  user,
+  isAdmin,
+  onLike,
+  onDelete,
+}: {
+  article: NewsArticle;
+  user: { id: string } | null;
+  isAdmin: boolean;
+  onLike: () => void;
+  onDelete: () => void;
+}) {
+  const isLiked = user ? article.likes.includes(user.id) : false;
+
+  return (
+    <article className="bg-white rounded-lg shadow-sm overflow-hidden flex flex-col hover:shadow-md transition-shadow">
+      {/* Image */}
+      {article.imageUrl ? (
+        <div className="w-full h-40 bg-[var(--color-surface-tertiary)]">
+          <img
+            src={article.imageUrl}
+            alt={article.title}
+            className="w-full h-full object-cover"
+          />
+        </div>
+      ) : (
+        <div className="w-full h-40 bg-gradient-to-br from-[var(--color-primary-600)]/80 to-[var(--color-primary-400)]/80 flex items-center justify-center">
+          <Newspaper className="h-10 w-10 text-white/25" />
+        </div>
+      )}
+
+      <div className="p-4 sm:p-5 flex flex-col flex-1">
+        <div className="flex items-center gap-2 mb-2">
+          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wide bg-[var(--color-primary-600)] text-white">
+            {categoryLabels[article.category]}
+          </span>
+          <span className="text-[11px] text-[var(--color-text-muted)]">
+            {formatDate(article.publishedAt)}
+          </span>
+        </div>
+
+        <h3 className="text-[16px] font-bold text-[var(--color-text-primary)] leading-snug mb-1.5 line-clamp-2">
+          {article.title}
+        </h3>
+        <p className="text-sm text-[var(--color-text-body)] leading-relaxed line-clamp-2 mb-3">
+          {article.excerpt}
+        </p>
+
+        <div className="mt-auto flex items-center justify-between pt-3 border-t border-[var(--color-border)]">
+          <p className="text-xs text-[var(--color-text-muted)]">
+            Von {article.author}
+          </p>
+          <div className="flex items-center gap-1.5">
+            <button
+              onClick={onLike}
+              className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium transition-all ${
+                isLiked
+                  ? "bg-blue-100 text-blue-700 hover:bg-blue-200"
+                  : "bg-[var(--color-surface-tertiary)] text-[var(--color-text-muted)] hover:bg-gray-200 hover:text-[var(--color-text-secondary)]"
+              }`}
+            >
+              <ThumbsUp className={`h-3 w-3 ${isLiked ? "fill-blue-700" : ""}`} />
+              {article.likes.length > 0 && <span>{article.likes.length}</span>}
+            </button>
+            {isAdmin && (
+              <button
+                onClick={onDelete}
+                className="flex items-center px-2 py-1 rounded-full text-xs bg-[var(--color-surface-tertiary)] text-[var(--color-text-muted)] hover:bg-red-50 hover:text-red-600 transition-all"
+                title="Beitrag löschen"
+              >
+                <Trash2 className="h-3 w-3" />
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+    </article>
   );
 }

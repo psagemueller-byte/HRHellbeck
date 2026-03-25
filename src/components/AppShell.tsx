@@ -6,6 +6,8 @@ import { useEffect } from "react";
 import Sidebar from "./Sidebar";
 import Footer from "./Footer";
 import CookieConsent from "./CookieConsent";
+import MobileTopBar from "./MobileTopBar";
+import MobileBottomNav from "./MobileBottomNav";
 
 const PUBLIC_ROUTES = ["/login", "/datenschutz", "/impressum", "/passwort-vergessen", "/passwort-zuruecksetzen", "/konto-einrichten"];
 
@@ -48,11 +50,27 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="min-h-screen bg-[var(--color-surface-secondary)] flex flex-col">
-      <Sidebar />
-      <main className="ml-64 p-8 flex-1">{children}</main>
-      <div className="ml-64">
+      {/* Desktop: sidebar */}
+      <div className="hidden md:block">
+        <Sidebar />
+      </div>
+
+      {/* Mobile: top bar */}
+      <MobileTopBar />
+
+      {/* Main content */}
+      <main className="md:ml-64 p-4 pt-20 pb-24 md:p-8 md:pt-8 md:pb-8 flex-1">
+        {children}
+      </main>
+
+      {/* Desktop: footer */}
+      <div className="hidden md:block md:ml-64">
         <Footer />
       </div>
+
+      {/* Mobile: bottom nav */}
+      <MobileBottomNav />
+
       <CookieConsent />
     </div>
   );
