@@ -410,122 +410,124 @@ export default function AdminPage() {
             const isSelf = u.id === user.id;
 
             return (
-              <div key={u.id} className="px-5 py-4 flex items-center gap-4">
-                <div
-                  className={`h-10 w-10 rounded-full flex items-center justify-center text-sm font-semibold flex-shrink-0 ${
-                    u.isActive
-                      ? "bg-[var(--color-primary-100)] text-[var(--color-primary-700)]"
-                      : "bg-gray-100 text-gray-400"
-                  }`}
-                >
-                  {u.firstName[0]}
-                  {u.lastName[0]}
-                </div>
-
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
-                    <span
-                      className={`text-sm font-medium ${
-                        u.isActive
-                          ? "text-[var(--color-text-primary)]"
-                          : "text-[var(--color-text-muted)] line-through"
-                      }`}
-                    >
-                      {u.firstName} {u.lastName}
-                    </span>
-                    {isSelf && (
-                      <span className="text-xs bg-[var(--color-primary-50)] text-[var(--color-primary-700)] px-1.5 py-0.5 rounded font-medium">
-                        Du
-                      </span>
-                    )}
-                    {!u.isActive && (
-                      <span className="text-xs bg-red-50 text-red-600 px-1.5 py-0.5 rounded font-medium">
-                        Deaktiviert
-                      </span>
-                    )}
-                  </div>
-                  <p className="text-xs text-[var(--color-text-muted)]">
-                    {u.email} &middot; {u.department} &middot; {u.position}
-                  </p>
-                </div>
-
-                <div className="flex items-center gap-2 flex-shrink-0">
+              <div key={u.id} className="px-4 py-4 md:px-5">
+                {/* Mobile: stacked layout / Desktop: row layout */}
+                <div className="flex items-start gap-3 md:items-center md:gap-4">
                   <div
-                    className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-xs font-medium ${config.bg} ${config.color}`}
+                    className={`h-10 w-10 rounded-full flex items-center justify-center text-sm font-semibold flex-shrink-0 ${
+                      u.isActive
+                        ? "bg-[var(--color-primary-100)] text-[var(--color-primary-700)]"
+                        : "bg-gray-100 text-gray-400"
+                    }`}
                   >
-                    <RoleIcon className="h-3.5 w-3.5" />
-                    {config.label}
+                    {u.firstName[0]}
+                    {u.lastName[0]}
                   </div>
 
-                  {!isSelf && (
-                    <>
-                      <select
-                        value={u.department}
-                        onChange={(e) => {
-                          const dept = e.target.value;
-                          const deptObj = departments.find((d) => d.name === dept);
-                          moveUserToDepartment(u.id, dept, deptObj?.headId || undefined);
-                        }}
-                        className="px-2 py-1.5 border border-[var(--color-border)] rounded-lg text-xs bg-white focus:outline-none focus:ring-2 focus:ring-[var(--color-primary-500)]"
-                        title="Abteilung zuweisen"
-                      >
-                        <option value="Ohne Abteilung">Ohne Abteilung</option>
-                        {departments.map((d) => (
-                          <option key={d.id} value={d.name}>{d.name}</option>
-                        ))}
-                      </select>
-
-                      <div className="flex items-center gap-1" title={`Urlaubstage: ${getVacationBalance(u.id).remaining} Rest von ${u.totalVacationDays ?? 30}`}>
-                        <Palmtree className="h-3.5 w-3.5 text-emerald-500" />
-                        <input
-                          type="number"
-                          min={0}
-                          max={365}
-                          value={u.totalVacationDays ?? 30}
-                          onChange={(e) => {
-                            const val = parseInt(e.target.value, 10);
-                            if (!isNaN(val)) updateUserVacationDays(u.id, val);
-                          }}
-                          className="w-14 px-1.5 py-1.5 border border-[var(--color-border)] rounded-lg text-xs bg-white text-center focus:outline-none focus:ring-2 focus:ring-[var(--color-primary-500)]"
-                          title="Jahresurlaub anpassen"
-                        />
-                      </div>
-
-                      <select
-                        value={u.role}
-                        onChange={(e) => handleRoleChange(u.id, e.target.value)}
-                        className="px-2 py-1.5 border border-[var(--color-border)] rounded-lg text-xs bg-white focus:outline-none focus:ring-2 focus:ring-[var(--color-primary-500)]"
-                      >
-                        <option value="admin">Admin</option>
-                        <option value="autor">Autor</option>
-                        <option value="benutzer">Benutzer</option>
-                      </select>
-
-                      <button
-                        onClick={() => handleToggleActive(u.id)}
-                        className={`p-1.5 rounded-lg transition-colors ${
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span
+                        className={`text-sm font-medium ${
                           u.isActive
-                            ? "text-amber-500 hover:bg-amber-50"
-                            : "text-green-500 hover:bg-green-50"
+                            ? "text-[var(--color-text-primary)]"
+                            : "text-[var(--color-text-muted)] line-through"
                         }`}
-                        title={u.isActive ? "Sperren" : "Entsperren"}
                       >
-                        {u.isActive ? (
-                          <UserX className="h-4 w-4" />
-                        ) : (
-                          <UserCheck className="h-4 w-4" />
-                        )}
-                      </button>
+                        {u.firstName} {u.lastName}
+                      </span>
+                      {isSelf && (
+                        <span className="text-xs bg-[var(--color-primary-50)] text-[var(--color-primary-700)] px-1.5 py-0.5 rounded font-medium">
+                          Du
+                        </span>
+                      )}
+                      {!u.isActive && (
+                        <span className="text-xs bg-red-50 text-red-600 px-1.5 py-0.5 rounded font-medium">
+                          Deaktiviert
+                        </span>
+                      )}
+                      {/* Role badge - visible inline on desktop, on own line on mobile */}
+                      <div
+                        className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-xs font-medium ${config.bg} ${config.color}`}
+                      >
+                        <RoleIcon className="h-3.5 w-3.5" />
+                        {config.label}
+                      </div>
+                    </div>
+                    <p className="text-xs text-[var(--color-text-muted)] mt-0.5 truncate">
+                      {u.email} &middot; {u.department} &middot; {u.position}
+                    </p>
 
-                      <button
-                        onClick={() => handleRemoveUser(u.id)}
-                        className="p-1.5 rounded-lg text-red-500 hover:bg-red-50 transition-colors"
-                        title="Endgültig entfernen"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
-                    </>
-                  )}
+                    {/* Controls: wrap on mobile */}
+                    {!isSelf && (
+                      <div className="flex items-center gap-2 flex-wrap mt-2 md:mt-1">
+                        <select
+                          value={u.department}
+                          onChange={(e) => {
+                            const dept = e.target.value;
+                            const deptObj = departments.find((d) => d.name === dept);
+                            moveUserToDepartment(u.id, dept, deptObj?.headId || undefined);
+                          }}
+                          className="px-2 py-1.5 border border-[var(--color-border)] rounded-lg text-xs bg-white focus:outline-none focus:ring-2 focus:ring-[var(--color-primary-500)]"
+                          title="Abteilung zuweisen"
+                        >
+                          <option value="Ohne Abteilung">Ohne Abteilung</option>
+                          {departments.map((d) => (
+                            <option key={d.id} value={d.name}>{d.name}</option>
+                          ))}
+                        </select>
+
+                        <div className="flex items-center gap-1" title={`Urlaubstage: ${getVacationBalance(u.id).remaining} Rest von ${u.totalVacationDays ?? 30}`}>
+                          <Palmtree className="h-3.5 w-3.5 text-emerald-500" />
+                          <input
+                            type="number"
+                            min={0}
+                            max={365}
+                            value={u.totalVacationDays ?? 30}
+                            onChange={(e) => {
+                              const val = parseInt(e.target.value, 10);
+                              if (!isNaN(val)) updateUserVacationDays(u.id, val);
+                            }}
+                            className="w-14 px-1.5 py-1.5 border border-[var(--color-border)] rounded-lg text-xs bg-white text-center focus:outline-none focus:ring-2 focus:ring-[var(--color-primary-500)]"
+                            title="Jahresurlaub anpassen"
+                          />
+                        </div>
+
+                        <select
+                          value={u.role}
+                          onChange={(e) => handleRoleChange(u.id, e.target.value)}
+                          className="px-2 py-1.5 border border-[var(--color-border)] rounded-lg text-xs bg-white focus:outline-none focus:ring-2 focus:ring-[var(--color-primary-500)]"
+                        >
+                          <option value="admin">Admin</option>
+                          <option value="autor">Autor</option>
+                          <option value="benutzer">Benutzer</option>
+                        </select>
+
+                        <button
+                          onClick={() => handleToggleActive(u.id)}
+                          className={`p-1.5 rounded-lg transition-colors ${
+                            u.isActive
+                              ? "text-amber-500 hover:bg-amber-50"
+                              : "text-green-500 hover:bg-green-50"
+                          }`}
+                          title={u.isActive ? "Sperren" : "Entsperren"}
+                        >
+                          {u.isActive ? (
+                            <UserX className="h-4 w-4" />
+                          ) : (
+                            <UserCheck className="h-4 w-4" />
+                          )}
+                        </button>
+
+                        <button
+                          onClick={() => handleRemoveUser(u.id)}
+                          className="p-1.5 rounded-lg text-red-500 hover:bg-red-50 transition-colors"
+                          title="Endgültig entfernen"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
             );
