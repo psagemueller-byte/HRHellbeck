@@ -107,16 +107,16 @@ const ROLE_HIERARCHY: Record<UserRole, number> = {
 export function AuthProvider({ children }: { children: ReactNode }) {
   const session = useSession();
   const [user, setUser] = useState<User | null>(null);
-  const [allUsers, setAllUsers] = useState<User[]>(mockUsers);
+  const [allUsers, setAllUsers] = useState<User[]>(MOCK_AUTH ? mockUsers : []);
   const [passwordHashes, setPasswordHashes] = useState<Record<string, string>>(mockPasswordHashes);
-  const [departments, setDepartments] = useState<Department[]>(mockDepartments);
-  const [news, setNews] = useState<NewsArticle[]>(mockNews);
-  const [vacationRequests, setVacationRequests] = useState<VacationRequest[]>(mockVacationRequests);
+  const [departments, setDepartments] = useState<Department[]>(MOCK_AUTH ? mockDepartments : []);
+  const [news, setNews] = useState<NewsArticle[]>(MOCK_AUTH ? mockNews : []);
+  const [vacationRequests, setVacationRequests] = useState<VacationRequest[]>(MOCK_AUTH ? mockVacationRequests : []);
   const [vacationCancelRequests, setVacationCancelRequests] = useState<VacationCancelRequest[]>([]);
-  const [chatMessages, setChatMessages] = useState<ChatMessage[]>(mockChatMessages);
-  const [shiftEntries, setShiftEntries] = useState<ShiftEntry[]>(mockShiftEntries);
-  const [disruptionReports, setDisruptionReports] = useState<DisruptionReport[]>(mockDisruptionReports);
-  const [handoverProtocols, setHandoverProtocols] = useState<HandoverProtocol[]>(mockHandoverProtocols);
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>(MOCK_AUTH ? mockChatMessages : []);
+  const [shiftEntries, setShiftEntries] = useState<ShiftEntry[]>(MOCK_AUTH ? mockShiftEntries : []);
+  const [disruptionReports, setDisruptionReports] = useState<DisruptionReport[]>(MOCK_AUTH ? mockDisruptionReports : []);
+  const [handoverProtocols, setHandoverProtocols] = useState<HandoverProtocol[]>(MOCK_AUTH ? mockHandoverProtocols : []);
   const loginAttempts = useRef(0);
   const lockoutUntil = useRef(0);
   const hydratedRef = useRef(false);
@@ -222,27 +222,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const meFromDb = dbUsers.find((u: User) => u.id === sessionUser.id);
         if (meFromDb) setUser(meFromDb);
       }
-      if (deptsRes.status === "fulfilled" && deptsRes.value.success && deptsRes.value.departments?.length > 0) {
-        setDepartments(deptsRes.value.departments);
+      if (deptsRes.status === "fulfilled" && deptsRes.value.success) {
+        setDepartments(deptsRes.value.departments || []);
       }
       if (vacRes.status === "fulfilled" && vacRes.value.success) {
-        if (vacRes.value.vacations?.length > 0) setVacationRequests(vacRes.value.vacations);
-        if (vacRes.value.cancelRequests?.length > 0) setVacationCancelRequests(vacRes.value.cancelRequests);
+        setVacationRequests(vacRes.value.vacations || []);
+        setVacationCancelRequests(vacRes.value.cancelRequests || []);
       }
-      if (shiftsRes.status === "fulfilled" && shiftsRes.value.success && shiftsRes.value.shifts?.length > 0) {
-        setShiftEntries(shiftsRes.value.shifts);
+      if (shiftsRes.status === "fulfilled" && shiftsRes.value.success) {
+        setShiftEntries(shiftsRes.value.shifts || []);
       }
-      if (newsRes.status === "fulfilled" && newsRes.value.success && newsRes.value.articles?.length > 0) {
-        setNews(newsRes.value.articles);
+      if (newsRes.status === "fulfilled" && newsRes.value.success) {
+        setNews(newsRes.value.articles || []);
       }
-      if (chatRes.status === "fulfilled" && chatRes.value.success && chatRes.value.messages?.length > 0) {
-        setChatMessages(chatRes.value.messages);
+      if (chatRes.status === "fulfilled" && chatRes.value.success) {
+        setChatMessages(chatRes.value.messages || []);
       }
-      if (disruptRes.status === "fulfilled" && disruptRes.value.success && disruptRes.value.reports?.length > 0) {
-        setDisruptionReports(disruptRes.value.reports);
+      if (disruptRes.status === "fulfilled" && disruptRes.value.success) {
+        setDisruptionReports(disruptRes.value.reports || []);
       }
-      if (handoverRes.status === "fulfilled" && handoverRes.value.success && handoverRes.value.protocols?.length > 0) {
-        setHandoverProtocols(handoverRes.value.protocols);
+      if (handoverRes.status === "fulfilled" && handoverRes.value.success) {
+        setHandoverProtocols(handoverRes.value.protocols || []);
       }
     });
   }, [session.status, session.data]);
