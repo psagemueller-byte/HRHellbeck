@@ -121,14 +121,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const lockoutUntil = useRef(0);
   const hydratedRef = useRef(false);
 
-  // Hydrate from localStorage on mount
+  // Hydrate from localStorage on mount (mock mode only)
   useEffect(() => {
+    if (!MOCK_AUTH) return;
     if (hydratedRef.current) return;
     hydratedRef.current = true;
 
     const storedUsers = loadFromStorage<User[]>(STORAGE_KEY_USERS);
     if (storedUsers && storedUsers.length > 0) {
-      // Merge: stored users take precedence, add any mock users not in stored
       const storedIds = new Set(storedUsers.map((u) => u.id));
       const merged = [...storedUsers, ...mockUsers.filter((u) => !storedIds.has(u.id))];
       setAllUsers(merged);
@@ -246,6 +246,66 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     });
   }, [session.status, session.data]);
+
+  // Periodic data refresh (every 30s) in DB mode
+  useEffect(() => {
+    if (MOCK_AUTH) return;
+    if (session.status !== "authenticated") return;
+
+    const fetchAllData = () => {
+      Promise.allSettled([
+        fetch("/api/vacations").then((r) => r.json()),
+        fetch("/api/departments").then((r) => r.json()),
+        fetch("/api/news").then((r) => r.json()),
+        fetch("/api/chat").then((r) => r.json()),
+        fetch("/api/shifts").then((r) => r.json()),
+        fetch("/api/users").then((r) => r.json()),
+      ]).then(([vacRes, deptsRes, newsRes, chatRes, shiftsRes, usersRes]) => {
+        if (vacRes.status === "fulfilled" && vacRes.value.success) {
+          setVacationRequests(vacRes.value.vacations || []);
+          setVacationCancelRequests(vacRes.value.cancelRequests || []);
+        }
+        if (deptsRes.status === "fulfilled" && deptsRes.value.success) {
+          setDepartments(deptsRes.value.departments || []);
+        }
+        if (newsRes.status === "fulfilled" && newsRes.value.success) {
+          setNews(newsRes.value.articles || []);
+        }
+        if (chatRes.status === "fulfilled" && chatRes.value.success) {
+          setChatMessages(chatRes.value.messages || []);
+        }
+        if (shiftsRes.status === "fulfilled" && shiftsRes.value.success) {
+          setShiftEntries(shiftsRes.value.shifts || []);
+        }
+        if (usersRes.status === "fulfilled" && usersRes.value.success) {
+          const toUser = (u: Record<string, unknown>): User => ({
+            id: u.id as string,
+            email: u.email as string || "",
+            firstName: u.firstName as string || "",
+            lastName: u.lastName as string || "",
+            position: u.position as string || "",
+            department: u.department as string || "Ohne Abteilung",
+            role: (u.role as UserRole) || "benutzer",
+            phone: u.phone as string || "",
+            street: u.street as string || "",
+            city: u.city as string || "",
+            zipCode: u.zipCode as string || "",
+            country: u.country as string || "Deutschland",
+            birthDate: u.birthDate as string || "",
+            startDate: u.startDate as string || "",
+            managerId: u.managerId as string || undefined,
+            isActive: u.isActive as boolean ?? true,
+            avatar: u.image as string || undefined,
+            totalVacationDays: u.totalVacationDays as number ?? 30,
+          });
+          setAllUsers(usersRes.value.users.map(toUser));
+        }
+      });
+    };
+
+    const interval = setInterval(fetchAllData, 30000);
+    return () => clearInterval(interval);
+  }, [session.status]);
 
   // Handle unauthenticated state
   useEffect(() => {
