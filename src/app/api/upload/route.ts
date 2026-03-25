@@ -4,6 +4,10 @@ import { supabaseAdmin, STORAGE_BUCKET } from "@/lib/supabase";
 
 export async function POST(req: NextRequest) {
   try {
+    if (!supabaseAdmin) {
+      return NextResponse.json({ success: false, error: "Supabase ist nicht konfiguriert." }, { status: 503 });
+    }
+
     const session = await auth();
     if (!session?.user?.id) {
       return NextResponse.json({ success: false, error: "Nicht authentifiziert." }, { status: 401 });
