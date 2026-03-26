@@ -16,8 +16,9 @@ export async function GET() {
 
     return NextResponse.json({ success: true, departments });
   } catch (error) {
-    console.error("Fetch departments error:", error);
-    return NextResponse.json({ success: false, error: "Ein Fehler ist aufgetreten." }, { status: 500 });
+    const message = error instanceof Error ? error.message : "Unbekannter Fehler";
+    console.error("Fetch departments error:", message);
+    return NextResponse.json({ success: false, error: `DB-Fehler (GET): ${message}` }, { status: 500 });
   }
 }
 
@@ -26,12 +27,15 @@ export async function POST(req: NextRequest) {
   try {
     const session = await auth();
     if (!session?.user?.id) {
-      return NextResponse.json({ success: false, error: "Nicht authentifiziert." }, { status: 401 });
+      return NextResponse.json({ success: false, error: "Nicht authentifiziert. Bitte erneut einloggen." }, { status: 401 });
     }
 
     const adminUser = await prisma.user.findUnique({ where: { id: session.user.id } });
-    if (!adminUser || adminUser.role !== "admin") {
-      return NextResponse.json({ success: false, error: "Keine Berechtigung." }, { status: 403 });
+    if (!adminUser) {
+      return NextResponse.json({ success: false, error: `Benutzer nicht gefunden (ID: ${session.user.id}).` }, { status: 403 });
+    }
+    if (adminUser.role !== "admin") {
+      return NextResponse.json({ success: false, error: `Keine Berechtigung. Rolle: ${adminUser.role}, benötigt: admin.` }, { status: 403 });
     }
 
     const { name, color } = await req.json();
@@ -57,8 +61,9 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ success: true, department });
   } catch (error) {
-    console.error("Create department error:", error);
-    return NextResponse.json({ success: false, error: "Ein Fehler ist aufgetreten." }, { status: 500 });
+    const message = error instanceof Error ? error.message : "Unbekannter Fehler";
+    console.error("Create department error:", message);
+    return NextResponse.json({ success: false, error: `DB-Fehler: ${message}` }, { status: 500 });
   }
 }
 
