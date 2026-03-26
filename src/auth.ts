@@ -1,13 +1,12 @@
 import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
-import { PrismaAdapter } from "@auth/prisma-adapter";
 import { prisma } from "@/lib/prisma";
 import bcrypt from "bcryptjs";
 import type { UserRole } from "@/types";
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
-  adapter: PrismaAdapter(prisma),
-  session: { strategy: "jwt" },
+  // No PrismaAdapter — we use Credentials + JWT only, no OAuth
+  session: { strategy: "jwt", maxAge: 24 * 60 * 60 },
   trustHost: true,
   pages: {
     signIn: "/login",
@@ -28,65 +27,49 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
 
         try {
           const user = await prisma.user.findUnique({ where: { email } });
-          if (!user || !user.isActive || !user.passwordHash) {
-            console.log("[Auth] Login failed: user not found or inactive for", email);
-            return null;
-          }
+          if (!user || !user.isActive || !user.passwordHash) return null;
 
           const isValid = await bcrypt.compare(password, user.passwordHash);
-          if (!isValid) {
-            console.log("[Auth] Login failed: invalid password for", email);
-            return null;
-          }
+          if (!isValid) return null;
 
           return {
             id: user.id,
             email: user.email,
             name: `${user.firstName} ${user.lastName}`.trim() || user.name,
-            image: user.image,
           };
         } catch (error) {
-          console.error("[Auth] Database error during login:", error);
+          console.error("[Auth] Database error:", error);
           return null;
         }
       },
     }),
   ],
   callbacks: {
-    async signIn({ account }) {
-      // Credentials provider must be explicitly allowed with PrismaAdapter
-      if (account?.provider === "credentials") {
-        return true;
-      }
-      return true;
-    },
     async jwt({ token, user }) {
       if (user) {
-        token.userId = user.id!;
-        // Only store minimal data in JWT to avoid cookie size issues
+        token.sub = user.id!;
         const dbUser = await prisma.user.findUnique({
           where: { id: user.id },
           select: { role: true, firstName: true, lastName: true, department: true, isActive: true },
         });
         if (dbUser) {
           token.role = dbUser.role as UserRole;
-          token.firstName = dbUser.firstName;
-          token.lastName = dbUser.lastName;
-          token.department = dbUser.department;
-          token.isActive = dbUser.isActive;
+          token.fn = dbUser.firstName;
+          token.ln = dbUser.lastName;
+          token.dept = dbUser.department;
+          token.act = dbUser.isActive;
         }
       }
       return token;
     },
-
     async session({ session, token }) {
       if (token) {
-        session.user.id = token.userId as string;
+        session.user.id = token.sub as string;
         session.user.role = (token.role as UserRole) || "benutzer";
-        session.user.firstName = token.firstName as string;
-        session.user.lastName = token.lastName as string;
-        session.user.department = token.department as string;
-        session.user.isActive = token.isActive as boolean;
+        session.user.firstName = (token.fn as string) || "";
+        session.user.lastName = (token.ln as string) || "";
+        session.user.department = (token.dept as string) || "";
+        session.user.isActive = (token.act as boolean) ?? true;
       }
       return session;
     },
