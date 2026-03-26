@@ -60,33 +60,19 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       }
       return true;
     },
-    async jwt({ token, user, trigger }) {
+    async jwt({ token, user }) {
       if (user) {
-        // Initial sign-in: load full HR profile from DB
+        token.userId = user.id!;
+        // Only store minimal data in JWT to avoid cookie size issues
         const dbUser = await prisma.user.findUnique({
           where: { id: user.id },
-        });
-        if (dbUser) {
-          token.userId = dbUser.id;
-          token.role = dbUser.role as UserRole;
-          token.firstName = dbUser.firstName;
-          token.lastName = dbUser.lastName;
-          token.department = dbUser.department;
-          token.position = dbUser.position;
-          token.isActive = dbUser.isActive;
-        }
-      }
-      if (trigger === "update") {
-        // Refresh profile data from DB
-        const dbUser = await prisma.user.findUnique({
-          where: { id: token.userId as string },
+          select: { role: true, firstName: true, lastName: true, department: true, isActive: true },
         });
         if (dbUser) {
           token.role = dbUser.role as UserRole;
           token.firstName = dbUser.firstName;
           token.lastName = dbUser.lastName;
           token.department = dbUser.department;
-          token.position = dbUser.position;
           token.isActive = dbUser.isActive;
         }
       }
@@ -96,11 +82,10 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     async session({ session, token }) {
       if (token) {
         session.user.id = token.userId as string;
-        session.user.role = token.role as UserRole;
+        session.user.role = (token.role as UserRole) || "benutzer";
         session.user.firstName = token.firstName as string;
         session.user.lastName = token.lastName as string;
         session.user.department = token.department as string;
-        session.user.position = token.position as string;
         session.user.isActive = token.isActive as boolean;
       }
       return session;
