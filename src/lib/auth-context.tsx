@@ -53,7 +53,7 @@ interface AuthContextType {
   setPasswordForUser: (userId: string, passwordHash: string) => void;
   passwordHashes: Record<string, string>;
   hasRole: (requiredRole: UserRole | UserRole[]) => boolean;
-  addDepartment: (name: string, color: string) => { success: boolean; error?: string };
+  addDepartment: (name: string, color: string) => Promise<{ success: boolean; error?: string }>;
   updateDepartment: (deptId: string, data: { name?: string; headId?: string; color?: string }) => void;
   deleteDepartment: (deptId: string) => void;
   moveUserToDepartment: (userId: string, department: string, managerId?: string) => void;
@@ -526,29 +526,31 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
 
   // --- Department Management ---
-  const addDepartment = useCallback((name: string, color: string): { success: boolean; error?: string } => {
+  const addDepartment = useCallback(async (name: string, color: string): Promise<{ success: boolean; error?: string }> => {
     const cleanName = sanitizeString(name).slice(0, 50);
     if (!cleanName) return { success: false, error: "Bitte einen Abteilungsnamen eingeben." };
     const exists = departments.some((d) => d.name.toLowerCase() === cleanName.toLowerCase());
     if (exists) return { success: false, error: "Eine Abteilung mit diesem Namen existiert bereits." };
 
     if (!MOCK_AUTH) {
-      // Persist to DB, then update local state with DB response
-      fetch("/api/departments", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: cleanName, color: color || "bg-gray-100 text-gray-700 border-gray-200" }),
-      })
-        .then((res) => res.json())
-        .then((data) => {
-          if (data.success && data.department) {
-            setDepartments((prev) => {
-              if (prev.some((d) => d.id === data.department.id)) return prev;
-              return [...prev, data.department];
-            });
-          }
-        })
-        .catch(() => {});
+      try {
+        const res = await fetch("/api/departments", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ name: cleanName, color: color || "bg-gray-100 text-gray-700 border-gray-200" }),
+        });
+        const data = await res.json();
+        if (data.success && data.department) {
+          setDepartments((prev) => {
+            if (prev.some((d) => d.id === data.department.id)) return prev;
+            return [...prev, data.department];
+          });
+          return { success: true };
+        }
+        return { success: false, error: data.error || "Fehler beim Erstellen der Abteilung." };
+      } catch {
+        return { success: false, error: "Netzwerkfehler. Bitte erneut versuchen." };
+      }
     } else {
       const newDept: Department = {
         id: `dept-${Date.now()}`,

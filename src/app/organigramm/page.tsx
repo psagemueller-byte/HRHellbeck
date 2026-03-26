@@ -182,9 +182,9 @@ export default function OrganigrammPage() {
   };
 
   // --- Add Department ---
-  const handleAddDept = () => {
+  const handleAddDept = async () => {
     setDeptError("");
-    const result = addDepartment(newDeptName, newDeptColor);
+    const result = await addDepartment(newDeptName, newDeptColor);
     if (!result.success) {
       setDeptError(result.error || "Fehler beim Erstellen.");
       return;
