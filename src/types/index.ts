@@ -60,6 +60,7 @@ export interface NewsArticle {
   publishedAt: string;
   imageUrl?: string;
   likes: string[];
+  readBy?: string[];
 }
 
 export interface ChatMessage {

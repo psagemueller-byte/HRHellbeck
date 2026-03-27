@@ -192,6 +192,7 @@ model NewsArticle {
   category    String   // unternehmen, team, event, hr
   imageUrl    String?  @db.Text
   likes       String[] @default([])
+  readBy      String[] @default([])
   publishedAt DateTime @default(now())
 
   authorUser User @relation(fields: [authorId], references: [id], onDelete: Cascade)

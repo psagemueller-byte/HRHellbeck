@@ -634,7 +634,7 @@ export default function PersonalplanungPage() {
               {/* Shift type selection */}
               <div>
                 <label className="block text-sm font-medium text-[var(--color-text-primary)] mb-2">Schichttyp</label>
-                <div className="grid grid-cols-4 sm:grid-cols-7 gap-2">
+                <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-7 gap-2">
                   {ASSIGNABLE_SHIFTS.map((type) => {
                     const cfg = shiftConfig[type];
                     const Icon = cfg.icon;

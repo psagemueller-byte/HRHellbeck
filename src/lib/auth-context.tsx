@@ -59,6 +59,7 @@ interface AuthContextType {
   moveUserToDepartment: (userId: string, department: string, managerId?: string) => void;
   getPendingApprovalsCount: () => number;
   toggleNewsLike: (newsId: string) => void;
+  markNewsRead: (newsId: string) => void;
   addNews: (data: Omit<NewsArticle, "id" | "publishedAt" | "likes">) => void;
   editNews: (newsId: string, data: { title?: string; excerpt?: string; content?: string; category?: string; imageUrl?: string }) => void;
   deleteNews: (newsId: string) => void;
@@ -668,6 +669,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [user]);
 
+  const markNewsRead = useCallback((newsId: string) => {
+    if (!user) return;
+    setNews((prev) =>
+      prev.map((article) => {
+        if (article.id !== newsId) return article;
+        const alreadyRead = article.readBy?.includes(user.id);
+        if (alreadyRead) return article;
+        return { ...article, readBy: [...(article.readBy || []), user.id] };
+      })
+    );
+    if (!MOCK_AUTH) {
+      fetch("/api/news", { method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "mark-read", id: newsId }),
+      }).catch(() => {});
+    }
+  }, [user]);
+
   const addNews = useCallback((data: Omit<NewsArticle, "id" | "publishedAt" | "likes">) => {
     if (!MOCK_AUTH) {
       fetch("/api/news", { method: "POST", headers: { "Content-Type": "application/json" },
@@ -1207,6 +1225,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         moveUserToDepartment,
         getPendingApprovalsCount,
         toggleNewsLike,
+        markNewsRead,
         addNews,
         editNews,
         deleteNews,

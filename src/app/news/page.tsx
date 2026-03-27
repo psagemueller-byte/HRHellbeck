@@ -76,7 +76,7 @@ const employeePulse = {
 };
 
 export default function NewsPage() {
-  const { user, news, toggleNewsLike, addNews, editNews, deleteNews, hasRole } = useAuth();
+  const { user, news, toggleNewsLike, markNewsRead, addNews, editNews, deleteNews, hasRole } = useAuth();
 
   const canCreate = hasRole("autor");
   const isAdmin = hasRole("admin");
@@ -456,7 +456,11 @@ export default function NewsPage() {
                   onDelete={() => setConfirmDelete(featuredArticle.id)}
                   onEdit={() => startEdit(featuredArticle)}
                   expanded={expandedArticle === featuredArticle.id}
-                  onToggleExpand={() => setExpandedArticle(expandedArticle === featuredArticle.id ? null : featuredArticle.id)}
+                  onToggleExpand={() => {
+                    const isExpanding = expandedArticle !== featuredArticle.id;
+                    setExpandedArticle(isExpanding ? featuredArticle.id : null);
+                    if (isExpanding) markNewsRead(featuredArticle.id);
+                  }}
                 />
               </div>
             )}
@@ -599,9 +603,16 @@ function FeaturedCard({
         <p className="text-[16px] sm:text-[18px] text-[var(--color-text-body)] leading-relaxed mb-2">
           {article.excerpt}
         </p>
-        <p className={`text-sm text-[var(--color-text-muted)] leading-relaxed mb-6 ${expanded ? "" : "line-clamp-3"}`}>
-          {article.content}
-        </p>
+
+        {/* Content with blur-to-read effect */}
+        <div className="relative mb-6">
+          <div className={`text-sm text-[var(--color-text-muted)] leading-relaxed transition-all duration-300 ${expanded ? "" : "max-h-24 overflow-hidden"}`}>
+            {article.content}
+          </div>
+          {!expanded && (
+            <div className="absolute bottom-0 left-0 right-0 h-20 bg-gradient-to-t from-white via-white/90 to-transparent pointer-events-none" />
+          )}
+        </div>
 
         <div className="mt-auto flex items-center justify-between gap-4">
           <button
@@ -609,7 +620,7 @@ function FeaturedCard({
             className="inline-flex items-center gap-2 bg-gradient-to-r from-[var(--color-primary-600)] to-[var(--color-primary-400)] text-white text-sm font-medium rounded-md px-6 py-3 hover:opacity-90 transition-opacity"
           >
             {expanded ? "Weniger anzeigen" : "Artikel lesen"}
-            <ArrowRight className={`h-4 w-4 transition-transform ${expanded ? "rotate-90" : ""}`} />
+            <ArrowRight className={`h-4 w-4 transition-transform ${expanded ? "rotate-180" : ""}`} />
           </button>
 
           <div className="flex items-center gap-2">

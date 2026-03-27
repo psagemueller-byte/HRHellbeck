@@ -62,6 +62,16 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: true });
     }
 
+    if (action === "mark-read") {
+      const { id } = body;
+      const article = await prisma.newsArticle.findUnique({ where: { id } });
+      if (!article) return NextResponse.json({ success: false, error: "Nicht gefunden." }, { status: 404 });
+      if (!article.readBy.includes(session.user.id)) {
+        await prisma.newsArticle.update({ where: { id }, data: { readBy: [...article.readBy, session.user.id] } });
+      }
+      return NextResponse.json({ success: true });
+    }
+
     if (action === "toggle-like") {
       const { id } = body;
       const article = await prisma.newsArticle.findUnique({ where: { id } });
