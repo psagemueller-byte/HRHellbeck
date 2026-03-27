@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect } from "react";
 import { useAuth } from "@/lib/auth-context";
 import { sanitizeAndLimit } from "@/lib/sanitize";
+import EmojiPicker from "@/components/EmojiPicker";
 import {
   MessageSquare,
   Send,
@@ -334,8 +335,9 @@ export default function ChatPage() {
               {/* Message input */}
               <form
                 onSubmit={handleSend}
-                className="px-4 py-3 border-t border-[var(--color-border)] flex items-center gap-3"
+                className="px-4 py-3 border-t border-[var(--color-border)] flex items-center gap-2"
               >
+                <EmojiPicker onSelect={(emoji) => setMessageInput((prev) => prev + emoji)} />
                 <input
                   type="text"
                   value={messageInput}
