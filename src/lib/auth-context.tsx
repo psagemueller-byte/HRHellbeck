@@ -2,7 +2,7 @@
 
 import { createContext, useContext, useState, useCallback, useRef, useEffect, ReactNode } from "react";
 import { useSession, signIn as nextAuthSignIn, signOut as nextAuthSignOut } from "next-auth/react";
-import { User, UserRole, USER_ROLES, NewsArticle, VacationRequest, VacationBalance, VacationCancelRequest, ChatMessage, Department, ShiftEntry, ShiftType, SHIFT_TYPES, DisruptionReport, DisruptionCategory, DISRUPTION_CATEGORIES, HandoverProtocol } from "@/types";
+import { User, UserRole, USER_ROLES, NewsArticle, VacationRequest, VacationBalance, VacationCancelRequest, ChatMessage, Department, ShiftEntry, ShiftType, SHIFT_TYPES, DisruptionReport, DisruptionCategory, DISRUPTION_CATEGORIES, HandoverProtocol, JobPosting } from "@/types";
 import { mockUsers, mockNews, mockVacationRequests, mockChatMessages, mockDepartments, mockShiftEntries, mockDisruptionReports, mockHandoverProtocols, mockPasswordHashes } from "@/lib/mock-data";
 import { isValidEmail, sanitizeString } from "@/lib/sanitize";
 import { calculateWorkingDays } from "@/lib/holidays";
@@ -96,6 +96,11 @@ interface AuthContextType {
   handoverProtocols: HandoverProtocol[];
   addHandover: (data: Omit<HandoverProtocol, "id" | "createdAt">) => void;
   getHandoversForUser: (userId: string) => HandoverProtocol[];
+  // Jobs
+  jobPostings: JobPosting[];
+  addJobPosting: (data: Omit<JobPosting, "id" | "createdAt" | "createdBy">) => void;
+  updateJobPosting: (id: string, data: Partial<JobPosting>) => void;
+  deleteJobPosting: (id: string) => void;
   refreshUsers: () => Promise<void>;
 }
 
@@ -120,6 +125,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [shiftEntries, setShiftEntries] = useState<ShiftEntry[]>(MOCK_AUTH ? mockShiftEntries : []);
   const [disruptionReports, setDisruptionReports] = useState<DisruptionReport[]>(MOCK_AUTH ? mockDisruptionReports : []);
   const [handoverProtocols, setHandoverProtocols] = useState<HandoverProtocol[]>(MOCK_AUTH ? mockHandoverProtocols : []);
+  const [jobPostings, setJobPostings] = useState<JobPosting[]>([]);
   const loginAttempts = useRef(0);
   const lockoutUntil = useRef(0);
   const hydratedRef = useRef(false);
@@ -218,7 +224,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       fetch("/api/chat").then((r) => r.json()),
       fetch("/api/disruptions").then((r) => r.json()),
       fetch("/api/handovers").then((r) => r.json()),
-    ]).then(([usersRes, deptsRes, vacRes, shiftsRes, newsRes, chatRes, disruptRes, handoverRes]) => {
+      fetch("/api/jobs").then((r) => r.json()),
+    ]).then(([usersRes, deptsRes, vacRes, shiftsRes, newsRes, chatRes, disruptRes, handoverRes, jobsRes]) => {
       if (usersRes.status === "fulfilled" && usersRes.value.success) {
         const dbUsers = usersRes.value.users.map(mapDbUser);
         setAllUsers(dbUsers);
@@ -246,6 +253,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
       if (handoverRes.status === "fulfilled" && handoverRes.value.success) {
         setHandoverProtocols(handoverRes.value.protocols || []);
+      }
+      if (jobsRes.status === "fulfilled" && jobsRes.value.success) {
+        setJobPostings(jobsRes.value.jobs || []);
       }
     });
   }, [session.status, session.data]);
@@ -1199,6 +1209,39 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
   }, [handoverProtocols]);
 
+  // --- Job Postings ---
+  const addJobPosting = useCallback((data: Omit<JobPosting, "id" | "createdAt" | "createdBy">) => {
+    if (!user) return;
+    if (!MOCK_AUTH) {
+      fetch("/api/jobs", { method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "create", ...data }),
+      }).then((r) => r.json()).then((res) => {
+        if (res.success && res.job) setJobPostings((prev) => [res.job, ...prev]);
+      }).catch(() => {});
+    } else {
+      const newJob: JobPosting = { ...data, id: `job-${Date.now()}`, createdAt: new Date().toISOString(), createdBy: user.id };
+      setJobPostings((prev) => [newJob, ...prev]);
+    }
+  }, [user]);
+
+  const updateJobPosting = useCallback((id: string, data: Partial<JobPosting>) => {
+    setJobPostings((prev) => prev.map((j) => j.id === id ? { ...j, ...data } as JobPosting : j));
+    if (!MOCK_AUTH) {
+      fetch("/api/jobs", { method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "update", id, ...data }),
+      }).catch(() => {});
+    }
+  }, []);
+
+  const deleteJobPosting = useCallback((id: string) => {
+    setJobPostings((prev) => prev.filter((j) => j.id !== id));
+    if (!MOCK_AUTH) {
+      fetch("/api/jobs", { method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "delete", id }),
+      }).catch(() => {});
+    }
+  }, []);
+
   const refreshUsers = useCallback(async () => {
     if (MOCK_AUTH) return;
     try {
@@ -1289,6 +1332,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         handoverProtocols,
         addHandover,
         getHandoversForUser,
+        jobPostings,
+        addJobPosting,
+        updateJobPosting,
+        deleteJobPosting,
         refreshUsers,
       }}
     >

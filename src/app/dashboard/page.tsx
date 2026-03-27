@@ -16,6 +16,7 @@ import {
   Thermometer,
   Cake,
   Gift,
+  MapPin,
 } from "lucide-react";
 import Link from "next/link";
 
@@ -49,7 +50,7 @@ function formatDate(dateStr: string) {
 }
 
 export default function DashboardPage() {
-  const { user, allUsers, news, toggleNewsLike, getVacationBalance, getSickDaysCount } = useAuth();
+  const { user, allUsers, news, toggleNewsLike, getVacationBalance, getSickDaysCount, jobPostings } = useAuth();
   const balance = user ? getVacationBalance(user.id) : { total: 0, used: 0, planned: 0, remaining: 0 };
   const currentYear = new Date().getFullYear();
   const sickDays = user ? getSickDaysCount(user.id, currentYear) : null;
@@ -319,6 +320,49 @@ export default function DashboardPage() {
                   vor {daysAgo === 1 ? "1 Tag" : `${daysAgo} Tagen`}
                 </span>
               </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Jobs widget */}
+      {jobPostings.filter((j) => j.isActive).length > 0 && (
+        <div className="bg-white rounded-xl border border-[var(--color-border)] p-5 mb-8">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-base font-bold text-[var(--color-text-primary)] flex items-center gap-2">
+              <Briefcase className="h-5 w-5 text-[var(--color-primary-600)]" />
+              Offene Stellen
+              <span className="text-xs font-medium text-[var(--color-primary-600)] bg-[var(--color-primary-50)] px-2 py-0.5 rounded-full">
+                {jobPostings.filter((j) => j.isActive).length}
+              </span>
+            </h2>
+            <Link
+              href="/jobs"
+              className="text-xs text-[var(--color-primary-600)] hover:text-[var(--color-primary-700)] font-medium flex items-center gap-1"
+            >
+              Alle Stellen
+              <ChevronRight className="h-3 w-3" />
+            </Link>
+          </div>
+          <div className="space-y-2">
+            {jobPostings.filter((j) => j.isActive).slice(0, 3).map((job) => (
+              <Link
+                key={job.id}
+                href="/jobs"
+                className="flex items-center gap-3 p-3 rounded-lg hover:bg-[var(--color-surface-tertiary)] transition-colors group"
+              >
+                <div className="h-9 w-9 rounded-lg bg-[var(--color-primary-50)] flex items-center justify-center flex-shrink-0">
+                  <Briefcase className="h-4 w-4 text-[var(--color-primary-600)]" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-[var(--color-text-primary)] truncate">{job.title}</p>
+                  <p className="text-xs text-[var(--color-text-muted)] flex items-center gap-2">
+                    <span>{job.department}</span>
+                    {job.location && <><span>·</span><span className="flex items-center gap-0.5"><MapPin className="h-2.5 w-2.5" />{job.location}</span></>}
+                  </p>
+                </div>
+                <ChevronRight className="h-4 w-4 text-[var(--color-text-muted)] group-hover:translate-x-0.5 transition-transform" />
+              </Link>
             ))}
           </div>
         </div>

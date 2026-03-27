@@ -16,6 +16,7 @@ import {
   Newspaper,
   Calendar,
   CalendarRange,
+  Briefcase,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { UserRole } from "@/types";
@@ -35,6 +36,7 @@ const navItems: { href: string; label: string; icon: typeof LayoutDashboard; min
   { href: "/personalplanung", label: "Personalplanung", icon: CalendarRange, minRole: "benutzer", managerOnly: true },
   { href: "/vacation", label: "Urlaub", icon: Palmtree, minRole: "benutzer" },
   { href: "/chat", label: "Nachrichten", icon: MessageSquare, minRole: "benutzer" },
+  { href: "/jobs", label: "Stellenanzeigen", icon: Briefcase, minRole: "benutzer" },
   { href: "/organigramm", label: "Organigramm", icon: Network, minRole: "admin" },
   { href: "/admin", label: "Administration", icon: Shield, minRole: "admin" },
 ];

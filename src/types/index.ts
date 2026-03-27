@@ -145,6 +145,21 @@ export interface VacationCancelRequest {
   decidedAt?: string;
 }
 
+export interface JobPosting {
+  id: string;
+  title: string;
+  department: string;
+  location: string;
+  type: "vollzeit" | "teilzeit" | "praktikum" | "ausbildung" | "werkstudent";
+  description: string;
+  requirements: string;
+  benefits?: string;
+  contactEmail: string;
+  isActive: boolean;
+  createdAt: string;
+  createdBy: string;
+}
+
 export interface HRToolConfig {
   apiBaseUrl: string;
   apiKey: string;

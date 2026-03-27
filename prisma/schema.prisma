@@ -92,6 +92,7 @@ model User {
   assignedDisruptions DisruptionReport[]  @relation("DisruptionAssignee")
   handoverProtocols   HandoverProtocol[]
   vacationCancelReqs  VacationCancelRequest[]
+  jobPostings         JobPosting[]
 }
 
 // ============================================
@@ -253,4 +254,25 @@ model HandoverProtocol {
   createdAt     DateTime @default(now())
 
   author User @relation(fields: [authorId], references: [id], onDelete: Cascade)
+}
+
+// ============================================
+// Job Postings (Stellenanzeigen)
+// ============================================
+
+model JobPosting {
+  id           String   @id @default(cuid())
+  title        String
+  department   String
+  location     String   @default("")
+  type         String   @default("vollzeit") // vollzeit, teilzeit, praktikum, ausbildung, werkstudent
+  description  String   @db.Text
+  requirements String   @db.Text
+  benefits     String?  @db.Text
+  contactEmail String   @default("")
+  isActive     Boolean  @default(true)
+  createdBy    String
+  createdAt    DateTime @default(now())
+
+  creator User @relation(fields: [createdBy], references: [id], onDelete: Cascade)
 }
