@@ -57,10 +57,14 @@ function UserCard({ u, isHead, subordinates, onDragStart }: {
             Leitung
           </div>
         )}
-        <div className={`h-12 w-12 rounded-full mx-auto mb-2 flex items-center justify-center text-sm font-bold ${
+        <div className={`h-12 w-12 rounded-full mx-auto mb-2 flex items-center justify-center text-sm font-bold overflow-hidden ${
           isHead ? "bg-[var(--color-primary-100)] text-[var(--color-primary-700)]" : "bg-gray-100 text-gray-600"
         }`}>
-          {u.firstName[0]}{u.lastName[0]}
+          {u.avatar ? (
+            <img src={u.avatar} alt={`${u.firstName} ${u.lastName}`} className="h-full w-full object-cover" />
+          ) : (
+            <>{u.firstName[0]}{u.lastName[0]}</>
+          )}
         </div>
         <p className="text-sm font-semibold text-[var(--color-text-primary)]">{u.firstName} {u.lastName}</p>
         <p className="text-xs text-[var(--color-text-muted)] mt-0.5">{u.position}</p>
@@ -402,8 +406,12 @@ export default function OrganigrammPage() {
                 className="inline-flex items-center gap-2 bg-[var(--color-surface-tertiary)] px-3 py-2 rounded-lg text-xs cursor-grab active:cursor-grabbing hover:bg-gray-200 transition-colors"
               >
                 <GripVertical className="h-3 w-3 text-[var(--color-text-muted)] opacity-50" />
-                <span className="h-6 w-6 rounded-full bg-white flex items-center justify-center text-[10px] font-bold text-[var(--color-text-secondary)]">
-                  {u.firstName[0]}{u.lastName[0]}
+                <span className="h-6 w-6 rounded-full bg-white flex items-center justify-center text-[10px] font-bold text-[var(--color-text-secondary)] overflow-hidden">
+                  {u.avatar ? (
+                    <img src={u.avatar} alt={`${u.firstName} ${u.lastName}`} className="h-full w-full object-cover" />
+                  ) : (
+                    <>{u.firstName[0]}{u.lastName[0]}</>
+                  )}
                 </span>
                 <span className="text-[var(--color-text-primary)] font-medium">{u.firstName} {u.lastName}</span>
                 <ArrowRight className="h-3 w-3 text-[var(--color-text-muted)]" />
@@ -450,8 +458,12 @@ export default function OrganigrammPage() {
                 <div className="flex flex-wrap gap-2 ml-1">
                   {members.map((m) => (
                     <span key={m.id} className="inline-flex items-center gap-1.5 bg-[var(--color-surface-tertiary)] px-2.5 py-1 rounded-lg text-xs">
-                      <span className="h-5 w-5 rounded-full bg-white flex items-center justify-center text-[10px] font-bold text-[var(--color-text-secondary)]">
-                        {m.firstName[0]}{m.lastName[0]}
+                      <span className="h-5 w-5 rounded-full bg-white flex items-center justify-center text-[10px] font-bold text-[var(--color-text-secondary)] overflow-hidden">
+                        {m.avatar ? (
+                          <img src={m.avatar} alt={`${m.firstName} ${m.lastName}`} className="h-full w-full object-cover" />
+                        ) : (
+                          <>{m.firstName[0]}{m.lastName[0]}</>
+                        )}
                       </span>
                       <span className="text-[var(--color-text-primary)] font-medium">{m.firstName} {m.lastName}</span>
                     </span>
