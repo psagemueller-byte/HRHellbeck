@@ -36,7 +36,7 @@ export interface VacationRequest {
   endDate: string;
   days: number;
   type: "urlaub" | "sonderurlaub" | "unbezahlt";
-  status: "ausstehend" | "genehmigt" | "abgelehnt";
+  status: "ausstehend" | "genehmigt" | "abgelehnt" | "storniert";
   reason?: string;
   createdAt: string;
   approvedBy?: string;

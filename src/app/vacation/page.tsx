@@ -44,6 +44,12 @@ const statusConfig: Record<
     bg: "bg-red-50",
     label: "Abgelehnt",
   },
+  storniert: {
+    icon: RotateCcw,
+    color: "text-gray-600",
+    bg: "bg-gray-50",
+    label: "Storniert",
+  },
 };
 
 const typeLabels: Record<string, string> = {

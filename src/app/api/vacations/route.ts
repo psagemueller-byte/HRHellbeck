@@ -84,10 +84,10 @@ export async function POST(req: NextRequest) {
         where: { id: cancelId },
         data: { status: "genehmigt", decidedBy: session.user.id, decidedAt: new Date().toISOString() },
       });
-      // Also reject the vacation
+      // Cancel approved → set vacation to "storniert" (not "abgelehnt")
       await prisma.vacationRequest.update({
         where: { id: cancel.vacationId },
-        data: { status: "abgelehnt" },
+        data: { status: "storniert" },
       });
       return NextResponse.json({ success: true, cancelRequest: { ...cancel, createdAt: cancel.createdAt.toISOString() } });
     }

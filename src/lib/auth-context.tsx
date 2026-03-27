@@ -850,7 +850,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setVacationRequests((prev) =>
       prev.map((v) =>
         v.id === cancelReq.vacationId
-          ? { ...v, status: "abgelehnt" as const, approvedBy: user.id, approvedAt: new Date().toISOString().split("T")[0] }
+          ? { ...v, status: "storniert" as const, approvedBy: user.id, approvedAt: new Date().toISOString().split("T")[0] }
           : v
       )
     );
