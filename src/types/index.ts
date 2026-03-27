@@ -50,6 +50,12 @@ export interface VacationBalance {
   remaining: number;
 }
 
+export interface NewsPollOption {
+  id: string;
+  text: string;
+  votes: string[]; // user IDs who voted for this option
+}
+
 export interface NewsArticle {
   id: string;
   title: string;
@@ -61,6 +67,12 @@ export interface NewsArticle {
   imageUrl?: string;
   likes: string[];
   readBy?: string[];
+  poll?: {
+    question: string;
+    options: NewsPollOption[];
+    multipleChoice?: boolean;
+    endsAt?: string;
+  };
 }
 
 export interface ChatMessage {

@@ -61,7 +61,8 @@ interface AuthContextType {
   toggleNewsLike: (newsId: string) => void;
   markNewsRead: (newsId: string) => void;
   addNews: (data: Omit<NewsArticle, "id" | "publishedAt" | "likes">) => void;
-  editNews: (newsId: string, data: { title?: string; excerpt?: string; content?: string; category?: string; imageUrl?: string }) => void;
+  editNews: (newsId: string, data: { title?: string; excerpt?: string; content?: string; category?: string; imageUrl?: string; poll?: NewsArticle["poll"] }) => void;
+  voteNewsPoll: (newsId: string, optionId: string) => void;
   deleteNews: (newsId: string) => void;
   addVacationRequest: (req: Omit<VacationRequest, "id" | "createdAt" | "status">) => void;
   approveVacation: (requestId: string) => void;
@@ -706,7 +707,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  const editNews = useCallback((newsId: string, data: { title?: string; excerpt?: string; content?: string; category?: string; imageUrl?: string }) => {
+  const editNews = useCallback((newsId: string, data: { title?: string; excerpt?: string; content?: string; category?: string; imageUrl?: string; poll?: NewsArticle["poll"] }) => {
     setNews((prev) => prev.map((n) => n.id === newsId ? { ...n, ...data } as NewsArticle : n));
     if (!MOCK_AUTH) {
       fetch("/api/news", { method: "POST", headers: { "Content-Type": "application/json" },
@@ -714,6 +715,37 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }).catch(() => {});
     }
   }, []);
+
+  const voteNewsPoll = useCallback((newsId: string, optionId: string) => {
+    if (!user) return;
+    setNews((prev) => prev.map((n) => {
+      if (n.id !== newsId || !n.poll) return n;
+      const updatedOptions = n.poll.options.map((opt) => {
+        if (n.poll!.multipleChoice) {
+          // Multiple choice: toggle vote
+          if (opt.id === optionId) {
+            return opt.votes.includes(user.id)
+              ? { ...opt, votes: opt.votes.filter((v) => v !== user.id) }
+              : { ...opt, votes: [...opt.votes, user.id] };
+          }
+          return opt;
+        } else {
+          // Single choice: remove from all, add to selected
+          const withoutUser = opt.votes.filter((v) => v !== user.id);
+          if (opt.id === optionId) {
+            return { ...opt, votes: [...withoutUser, user.id] };
+          }
+          return { ...opt, votes: withoutUser };
+        }
+      });
+      return { ...n, poll: { ...n.poll, options: updatedOptions } };
+    }));
+    if (!MOCK_AUTH) {
+      fetch("/api/news", { method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "vote-poll", id: newsId, optionId }),
+      }).catch(() => {});
+    }
+  }, [user]);
 
   const deleteNews = useCallback((newsId: string) => {
     setNews((prev) => prev.filter((n) => n.id !== newsId));
@@ -1228,6 +1260,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         markNewsRead,
         addNews,
         editNews,
+        voteNewsPoll,
         deleteNews,
         addVacationRequest,
         approveVacation,

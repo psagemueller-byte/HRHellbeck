@@ -18,6 +18,8 @@ export async function GET() {
       articles: articles.map((a) => ({
         ...a,
         publishedAt: a.publishedAt.toISOString(),
+        poll: a.pollData ? JSON.parse(a.pollData) : undefined,
+        pollData: undefined,
       })),
     });
   } catch (error) {
@@ -37,23 +39,46 @@ export async function POST(req: NextRequest) {
     const { action } = body;
 
     if (action === "create") {
-      const { title, excerpt, content, author, category, imageUrl } = body;
+      const { title, excerpt, content, author, category, imageUrl, poll } = body;
       const article = await prisma.newsArticle.create({
-        data: { title, excerpt, content, author, authorId: session.user.id, category, imageUrl, likes: [] },
+        data: { title, excerpt, content, author, authorId: session.user.id, category, imageUrl, likes: [], pollData: poll ? JSON.stringify(poll) : null },
       });
-      return NextResponse.json({ success: true, article: { ...article, publishedAt: article.publishedAt.toISOString() } });
+      return NextResponse.json({ success: true, article: { ...article, publishedAt: article.publishedAt.toISOString(), poll: poll || undefined, pollData: undefined } });
     }
 
     if (action === "update") {
-      const { id, title, excerpt, content, category, imageUrl } = body;
-      const data: Record<string, string> = {};
+      const { id, title, excerpt, content, category, imageUrl, poll } = body;
+      const data: Record<string, unknown> = {};
       if (title !== undefined) data.title = title;
       if (excerpt !== undefined) data.excerpt = excerpt;
       if (content !== undefined) data.content = content;
       if (category !== undefined) data.category = category;
       if (imageUrl !== undefined) data.imageUrl = imageUrl;
+      if (poll !== undefined) data.pollData = poll ? JSON.stringify(poll) : null;
       const updated = await prisma.newsArticle.update({ where: { id }, data });
-      return NextResponse.json({ success: true, article: { ...updated, publishedAt: updated.publishedAt.toISOString() } });
+      return NextResponse.json({ success: true, article: { ...updated, publishedAt: updated.publishedAt.toISOString(), poll: updated.pollData ? JSON.parse(updated.pollData) : undefined, pollData: undefined } });
+    }
+
+    if (action === "vote-poll") {
+      const { id, optionId } = body;
+      const article = await prisma.newsArticle.findUnique({ where: { id } });
+      if (!article || !article.pollData) return NextResponse.json({ success: false, error: "Keine Umfrage." }, { status: 404 });
+      const poll = JSON.parse(article.pollData);
+      poll.options = poll.options.map((opt: { id: string; votes: string[] }) => {
+        if (poll.multipleChoice) {
+          if (opt.id === optionId) {
+            return opt.votes.includes(session.user.id)
+              ? { ...opt, votes: opt.votes.filter((v: string) => v !== session.user.id) }
+              : { ...opt, votes: [...opt.votes, session.user.id] };
+          }
+          return opt;
+        } else {
+          const withoutUser = opt.votes.filter((v: string) => v !== session.user.id);
+          return opt.id === optionId ? { ...opt, votes: [...withoutUser, session.user.id] } : { ...opt, votes: withoutUser };
+        }
+      });
+      await prisma.newsArticle.update({ where: { id }, data: { pollData: JSON.stringify(poll) } });
+      return NextResponse.json({ success: true });
     }
 
     if (action === "delete") {

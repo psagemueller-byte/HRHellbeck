@@ -193,6 +193,7 @@ model NewsArticle {
   imageUrl    String?  @db.Text
   likes       String[] @default([])
   readBy      String[] @default([])
+  pollData    String?  @db.Text // JSON string for poll data
   publishedAt DateTime @default(now())
 
   authorUser User @relation(fields: [authorId], references: [id], onDelete: Cascade)

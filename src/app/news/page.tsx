@@ -4,10 +4,11 @@ import { useState, useRef } from "react";
 import { useAuth } from "@/lib/auth-context";
 import { sanitizeAndLimit } from "@/lib/sanitize";
 import { uploadFile } from "@/lib/upload";
-import { NewsArticle } from "@/types";
+import { NewsArticle, NewsPollOption } from "@/types";
 import {
   Newspaper,
   Users,
+  BarChart3,
   PartyPopper,
   Briefcase,
   Plus,
@@ -76,7 +77,7 @@ const employeePulse = {
 };
 
 export default function NewsPage() {
-  const { user, news, toggleNewsLike, markNewsRead, addNews, editNews, deleteNews, hasRole } = useAuth();
+  const { user, news, toggleNewsLike, markNewsRead, addNews, editNews, voteNewsPoll, deleteNews, hasRole } = useAuth();
 
   const canCreate = hasRole("autor");
   const isAdmin = hasRole("admin");
@@ -96,10 +97,20 @@ export default function NewsPage() {
     category: "unternehmen" as NewsCategory,
   });
 
+  // Poll state
+  const [showPoll, setShowPoll] = useState(false);
+  const [pollQuestion, setPollQuestion] = useState("");
+  const [pollOptions, setPollOptions] = useState(["", ""]);
+  const [pollMultiple, setPollMultiple] = useState(false);
+
   const resetForm = () => {
     setFormData({ title: "", excerpt: "", content: "", category: "unternehmen" });
     setImagePreview(null);
     setFormError("");
+    setShowPoll(false);
+    setPollQuestion("");
+    setPollOptions(["", ""]);
+    setPollMultiple(false);
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
@@ -156,6 +167,19 @@ export default function NewsPage() {
       return;
     }
 
+    // Build poll data if enabled
+    const pollData = showPoll && pollQuestion.trim() && pollOptions.filter((o) => o.trim()).length >= 2
+      ? {
+          question: sanitizeAndLimit(pollQuestion, 200),
+          options: pollOptions.filter((o) => o.trim()).map((o, i) => ({
+            id: `opt-${i}`,
+            text: sanitizeAndLimit(o, 100),
+            votes: [] as string[],
+          })),
+          multipleChoice: pollMultiple,
+        }
+      : undefined;
+
     if (editingArticle) {
       editNews(editingArticle.id, {
         title,
@@ -163,6 +187,7 @@ export default function NewsPage() {
         content,
         category: formData.category,
         imageUrl: imagePreview || undefined,
+        poll: pollData,
       });
       setEditingArticle(null);
     } else {
@@ -174,6 +199,7 @@ export default function NewsPage() {
         category: formData.category,
         author: authorName,
         imageUrl: imagePreview || undefined,
+        poll: pollData,
       });
     }
 
@@ -189,6 +215,12 @@ export default function NewsPage() {
       category: article.category as NewsCategory,
     });
     setImagePreview(article.imageUrl || null);
+    if (article.poll) {
+      setShowPoll(true);
+      setPollQuestion(article.poll.question);
+      setPollOptions(article.poll.options.map((o) => o.text));
+      setPollMultiple(article.poll.multipleChoice || false);
+    }
     setEditingArticle(article);
     setShowEditor(true);
   };
@@ -373,6 +405,65 @@ export default function NewsPage() {
                 </div>
               </div>
 
+              {/* Poll editor */}
+              <div>
+                <button
+                  type="button"
+                  onClick={() => setShowPoll(!showPoll)}
+                  className={`flex items-center gap-2 text-sm font-medium transition-colors ${showPoll ? "text-[var(--color-primary-600)]" : "text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)]"}`}
+                >
+                  <BarChart3 className="h-4 w-4" />
+                  {showPoll ? "Umfrage entfernen" : "Umfrage hinzufügen"}
+                </button>
+                {showPoll && (
+                  <div className="mt-3 p-4 border border-[var(--color-border)] rounded-lg bg-[var(--color-surface-tertiary)] space-y-3">
+                    <input
+                      type="text"
+                      value={pollQuestion}
+                      onChange={(e) => setPollQuestion(e.target.value)}
+                      placeholder="Frage der Umfrage..."
+                      maxLength={200}
+                      className="w-full px-3 py-2 border border-[var(--color-border)] rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[var(--color-primary-500)]"
+                    />
+                    {pollOptions.map((opt, i) => (
+                      <div key={i} className="flex items-center gap-2">
+                        <span className="text-xs text-[var(--color-text-muted)] w-5">{i + 1}.</span>
+                        <input
+                          type="text"
+                          value={opt}
+                          onChange={(e) => {
+                            const updated = [...pollOptions];
+                            updated[i] = e.target.value;
+                            setPollOptions(updated);
+                          }}
+                          placeholder={`Option ${i + 1}`}
+                          maxLength={100}
+                          className="flex-1 px-3 py-2 border border-[var(--color-border)] rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[var(--color-primary-500)]"
+                        />
+                        {pollOptions.length > 2 && (
+                          <button type="button" onClick={() => setPollOptions(pollOptions.filter((_, j) => j !== i))} className="text-red-500 hover:text-red-700">
+                            <X className="h-4 w-4" />
+                          </button>
+                        )}
+                      </div>
+                    ))}
+                    {pollOptions.length < 6 && (
+                      <button
+                        type="button"
+                        onClick={() => setPollOptions([...pollOptions, ""])}
+                        className="text-xs text-[var(--color-primary-600)] font-medium hover:underline"
+                      >
+                        + Option hinzufügen
+                      </button>
+                    )}
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input type="checkbox" checked={pollMultiple} onChange={(e) => setPollMultiple(e.target.checked)} className="rounded" />
+                      <span className="text-xs text-[var(--color-text-secondary)]">Mehrfachauswahl erlauben</span>
+                    </label>
+                  </div>
+                )}
+              </div>
+
               {/* Buttons */}
               <div className="flex gap-3 pt-2">
                 <button
@@ -455,6 +546,7 @@ export default function NewsPage() {
                   onLike={() => toggleNewsLike(featuredArticle.id)}
                   onDelete={() => setConfirmDelete(featuredArticle.id)}
                   onEdit={() => startEdit(featuredArticle)}
+                  onVote={(optionId) => voteNewsPoll(featuredArticle.id, optionId)}
                   expanded={expandedArticle === featuredArticle.id}
                   onToggleExpand={() => {
                     const isExpanding = expandedArticle !== featuredArticle.id;
@@ -533,6 +625,7 @@ export default function NewsPage() {
                     onLike={() => toggleNewsLike(article.id)}
                     onDelete={() => setConfirmDelete(article.id)}
                     onEdit={() => startEdit(article)}
+                    onVote={(optionId) => voteNewsPoll(article.id, optionId)}
                   />
                 ))}
               </div>
@@ -554,6 +647,7 @@ function FeaturedCard({
   onLike,
   onDelete,
   onEdit,
+  onVote,
   expanded,
   onToggleExpand,
 }: {
@@ -563,6 +657,7 @@ function FeaturedCard({
   onLike: () => void;
   onDelete: () => void;
   onEdit: () => void;
+  onVote: (optionId: string) => void;
   expanded: boolean;
   onToggleExpand: () => void;
 }) {
@@ -613,6 +708,11 @@ function FeaturedCard({
             <div className="absolute bottom-0 left-0 right-0 h-20 bg-gradient-to-t from-white via-white/90 to-transparent pointer-events-none" />
           )}
         </div>
+
+        {/* Poll */}
+        {article.poll && (
+          <PollWidget poll={article.poll} userId={user?.id} onVote={onVote} />
+        )}
 
         <div className="mt-auto flex items-center justify-between gap-4">
           <button
@@ -674,6 +774,7 @@ function SecondaryCard({
   onLike,
   onDelete,
   onEdit,
+  onVote,
 }: {
   article: NewsArticle;
   user: { id: string } | null;
@@ -681,6 +782,7 @@ function SecondaryCard({
   onLike: () => void;
   onDelete: () => void;
   onEdit: () => void;
+  onVote: (optionId: string) => void;
 }) {
   const isLiked = user ? article.likes.includes(user.id) : false;
 
@@ -717,6 +819,10 @@ function SecondaryCard({
         <p className="text-sm text-[var(--color-text-body)] leading-relaxed line-clamp-2 mb-3">
           {article.excerpt}
         </p>
+
+        {article.poll && (
+          <PollWidget poll={article.poll} userId={user?.id} onVote={onVote} />
+        )}
 
         <div className="mt-auto flex items-center justify-between pt-3 border-t border-[var(--color-border)]">
           <p className="text-xs text-[var(--color-text-muted)]">
@@ -756,5 +862,77 @@ function SecondaryCard({
         </div>
       </div>
     </article>
+  );
+}
+
+/* ══════════════════════════════════════════════
+   Poll Widget (inline in articles)
+   ══════════════════════════════════════════════ */
+function PollWidget({
+  poll,
+  userId,
+  onVote,
+}: {
+  poll: NonNullable<NewsArticle["poll"]>;
+  userId: string | undefined;
+  onVote: (optionId: string) => void;
+}) {
+  const totalVotes = poll.options.reduce((sum, opt) => sum + opt.votes.length, 0);
+  const hasVoted = userId ? poll.options.some((opt) => opt.votes.includes(userId)) : false;
+
+  return (
+    <div className="mt-4 p-4 bg-[var(--color-surface-tertiary)] rounded-lg border border-[var(--color-border)]">
+      <div className="flex items-center gap-2 mb-3">
+        <BarChart3 className="h-4 w-4 text-[var(--color-primary-600)]" />
+        <h4 className="text-sm font-bold text-[var(--color-text-primary)]">{poll.question}</h4>
+      </div>
+      <div className="space-y-2">
+        {poll.options.map((opt) => {
+          const isSelected = userId ? opt.votes.includes(userId) : false;
+          const pct = totalVotes > 0 ? Math.round((opt.votes.length / totalVotes) * 100) : 0;
+          return (
+            <button
+              key={opt.id}
+              onClick={() => userId && onVote(opt.id)}
+              className={`w-full text-left relative overflow-hidden rounded-lg border transition-all ${
+                isSelected
+                  ? "border-[var(--color-primary-400)] bg-white"
+                  : "border-[var(--color-border)] bg-white hover:border-[var(--color-primary-300)]"
+              }`}
+            >
+              {hasVoted && (
+                <div
+                  className={`absolute inset-y-0 left-0 transition-all duration-500 ${
+                    isSelected ? "bg-[var(--color-primary-100)]" : "bg-[var(--color-surface-tertiary)]"
+                  }`}
+                  style={{ width: `${pct}%` }}
+                />
+              )}
+              <div className="relative flex items-center justify-between px-3 py-2.5">
+                <div className="flex items-center gap-2">
+                  <div className={`h-4 w-4 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${
+                    isSelected ? "border-[var(--color-primary-600)] bg-[var(--color-primary-600)]" : "border-[var(--color-border)]"
+                  }`}>
+                    {isSelected && <div className="h-1.5 w-1.5 rounded-full bg-white" />}
+                  </div>
+                  <span className={`text-sm ${isSelected ? "font-medium text-[var(--color-primary-700)]" : "text-[var(--color-text-primary)]"}`}>
+                    {opt.text}
+                  </span>
+                </div>
+                {hasVoted && (
+                  <span className={`text-xs font-medium flex-shrink-0 ${isSelected ? "text-[var(--color-primary-600)]" : "text-[var(--color-text-muted)]"}`}>
+                    {pct}%
+                  </span>
+                )}
+              </div>
+            </button>
+          );
+        })}
+      </div>
+      <p className="text-[10px] text-[var(--color-text-muted)] mt-2">
+        {totalVotes} {totalVotes === 1 ? "Stimme" : "Stimmen"}
+        {poll.multipleChoice && " · Mehrfachauswahl"}
+      </p>
+    </div>
   );
 }

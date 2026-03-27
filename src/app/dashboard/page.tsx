@@ -1,5 +1,6 @@
 "use client";
 
+import { useMemo } from "react";
 import { useAuth } from "@/lib/auth-context";
 import {
   Palmtree,
@@ -13,6 +14,8 @@ import {
   ChevronRight,
   ThumbsUp,
   Thermometer,
+  Cake,
+  Gift,
 } from "lucide-react";
 import Link from "next/link";
 
@@ -46,10 +49,51 @@ function formatDate(dateStr: string) {
 }
 
 export default function DashboardPage() {
-  const { user, news, toggleNewsLike, getVacationBalance, getSickDaysCount } = useAuth();
+  const { user, allUsers, news, toggleNewsLike, getVacationBalance, getSickDaysCount } = useAuth();
   const balance = user ? getVacationBalance(user.id) : { total: 0, used: 0, planned: 0, remaining: 0 };
   const currentYear = new Date().getFullYear();
   const sickDays = user ? getSickDaysCount(user.id, currentYear) : null;
+
+  // Birthday logic
+  const birthdays = useMemo(() => {
+    const today = new Date();
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    const todayMD = `${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
+    const tomorrowMD = `${String(tomorrow.getMonth() + 1).padStart(2, "0")}-${String(tomorrow.getDate()).padStart(2, "0")}`;
+
+    const todayList: typeof allUsers = [];
+    const tomorrowList: typeof allUsers = [];
+    const recentList: { user: typeof allUsers[0]; date: string; daysAgo: number }[] = [];
+
+    for (const u of allUsers) {
+      if (!u.isActive || !u.birthDate) continue;
+      const bd = u.birthDate; // format: YYYY-MM-DD
+      const parts = bd.split("-");
+      if (parts.length < 3) continue;
+      const md = `${parts[1]}-${parts[2]}`;
+
+      if (md === todayMD) {
+        todayList.push(u);
+      } else if (md === tomorrowMD) {
+        tomorrowList.push(u);
+      } else {
+        // Check last 7 days
+        for (let i = 1; i <= 7; i++) {
+          const past = new Date(today);
+          past.setDate(past.getDate() - i);
+          const pastMD = `${String(past.getMonth() + 1).padStart(2, "0")}-${String(past.getDate()).padStart(2, "0")}`;
+          if (md === pastMD) {
+            recentList.push({ user: u, date: bd, daysAgo: i });
+            break;
+          }
+        }
+      }
+    }
+    return { today: todayList, tomorrow: tomorrowList, recent: recentList };
+  }, [allUsers]);
+
+  const hasBirthdays = birthdays.today.length > 0 || birthdays.tomorrow.length > 0 || birthdays.recent.length > 0;
 
   const greeting = () => {
     const hour = new Date().getHours();
@@ -195,6 +239,90 @@ export default function DashboardPage() {
           </div>
         </Link>
       </div>
+
+      {/* Birthday section */}
+      {hasBirthdays && (
+        <div className="bg-white rounded-xl border border-[var(--color-border)] p-5 mb-8">
+          <h2 className="text-base font-bold text-[var(--color-text-primary)] flex items-center gap-2 mb-4">
+            <Cake className="h-5 w-5 text-pink-500" />
+            Geburtstage
+          </h2>
+          <div className="space-y-3">
+            {/* Today */}
+            {birthdays.today.map((u) => (
+              <div key={u.id} className="flex items-center gap-3 p-3 bg-pink-50 border border-pink-200 rounded-lg">
+                <div className="h-10 w-10 rounded-full overflow-hidden flex-shrink-0">
+                  {u.avatar ? (
+                    <img src={u.avatar} alt={`${u.firstName} ${u.lastName}`} className="h-full w-full object-cover" />
+                  ) : (
+                    <div className="h-full w-full bg-pink-200 flex items-center justify-center text-pink-700 font-bold text-sm">
+                      {u.firstName[0]}{u.lastName[0]}
+                    </div>
+                  )}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold text-[var(--color-text-primary)]">
+                    {u.firstName} {u.lastName}
+                  </p>
+                  <p className="text-xs text-pink-600">{u.department}</p>
+                </div>
+                <div className="flex items-center gap-1.5 bg-pink-100 px-3 py-1 rounded-full flex-shrink-0">
+                  <Gift className="h-3.5 w-3.5 text-pink-600" />
+                  <span className="text-xs font-bold text-pink-700">Heute! 🎂</span>
+                </div>
+              </div>
+            ))}
+
+            {/* Tomorrow */}
+            {birthdays.tomorrow.map((u) => (
+              <div key={u.id} className="flex items-center gap-3 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                <div className="h-10 w-10 rounded-full overflow-hidden flex-shrink-0">
+                  {u.avatar ? (
+                    <img src={u.avatar} alt={`${u.firstName} ${u.lastName}`} className="h-full w-full object-cover" />
+                  ) : (
+                    <div className="h-full w-full bg-amber-200 flex items-center justify-center text-amber-700 font-bold text-sm">
+                      {u.firstName[0]}{u.lastName[0]}
+                    </div>
+                  )}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold text-[var(--color-text-primary)]">
+                    {u.firstName} {u.lastName}
+                  </p>
+                  <p className="text-xs text-amber-600">{u.department}</p>
+                </div>
+                <span className="text-xs font-medium text-amber-700 bg-amber-100 px-3 py-1 rounded-full flex-shrink-0">
+                  Morgen
+                </span>
+              </div>
+            ))}
+
+            {/* Recent (last 7 days) */}
+            {birthdays.recent.map(({ user: u, daysAgo }) => (
+              <div key={u.id} className="flex items-center gap-3 p-3 bg-[var(--color-surface-tertiary)] rounded-lg">
+                <div className="h-10 w-10 rounded-full overflow-hidden flex-shrink-0">
+                  {u.avatar ? (
+                    <img src={u.avatar} alt={`${u.firstName} ${u.lastName}`} className="h-full w-full object-cover" />
+                  ) : (
+                    <div className="h-full w-full bg-gray-200 flex items-center justify-center text-gray-600 font-bold text-sm">
+                      {u.firstName[0]}{u.lastName[0]}
+                    </div>
+                  )}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-[var(--color-text-primary)]">
+                    {u.firstName} {u.lastName}
+                  </p>
+                  <p className="text-xs text-[var(--color-text-muted)]">{u.department}</p>
+                </div>
+                <span className="text-xs text-[var(--color-text-muted)] flex-shrink-0">
+                  vor {daysAgo === 1 ? "1 Tag" : `${daysAgo} Tagen`}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* News section */}
       <div>
