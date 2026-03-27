@@ -35,9 +35,9 @@ const shiftConfig: Record<ShiftType, { label: string; short: string; color: stri
   krank: { label: "Krank", short: "K", color: "text-pink-700", bg: "bg-pink-100 border-pink-300", cellBg: "bg-pink-200", icon: Thermometer },
 };
 
-const ASSIGNABLE_SHIFTS: ShiftType[] = ["frueh", "spaet", "nacht", "frei", "krank"];
+const ASSIGNABLE_SHIFTS: ShiftType[] = ["frueh", "spaet", "nacht", "frei", "krank", "urlaub", "sonderurlaub"];
 // Typen, bei denen Wochenenden IMMER übersprungen werden (unabhängig von Checkbox)
-const ALWAYS_SKIP_WEEKENDS: ShiftType[] = ["krank"];
+const ALWAYS_SKIP_WEEKENDS: ShiftType[] = ["krank", "urlaub", "sonderurlaub"];
 
 function formatDateStr(year: number, month: number, day: number) {
   return `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
@@ -634,7 +634,7 @@ export default function PersonalplanungPage() {
               {/* Shift type selection */}
               <div>
                 <label className="block text-sm font-medium text-[var(--color-text-primary)] mb-2">Schichttyp</label>
-                <div className="grid grid-cols-5 gap-2">
+                <div className="grid grid-cols-4 sm:grid-cols-7 gap-2">
                   {ASSIGNABLE_SHIFTS.map((type) => {
                     const cfg = shiftConfig[type];
                     const Icon = cfg.icon;
