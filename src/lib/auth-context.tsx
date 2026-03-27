@@ -772,17 +772,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const targetUser = allUsers.find((u) => u.id === userId);
     const total = targetUser?.totalVacationDays ?? 30;
 
-    const userRequests = vacationRequests.filter(
-      (r) => r.userId === userId && r.type !== "unbezahlt"
+    // Only count active requests (not abgelehnt/storniert)
+    const activeRequests = vacationRequests.filter(
+      (r) => r.userId === userId && r.type !== "unbezahlt" && r.status !== "abgelehnt" && r.status !== "storniert"
     );
 
-    const used = userRequests
+    // Use r.days (which is updated on partial cancellation) instead of recalculating from dates
+    const used = activeRequests
       .filter((r) => r.status === "genehmigt" && new Date(r.endDate) < new Date())
-      .reduce((sum, r) => sum + calculateWorkingDays(r.startDate, r.endDate), 0);
+      .reduce((sum, r) => sum + r.days, 0);
 
-    const planned = userRequests
+    const planned = activeRequests
       .filter((r) => (r.status === "genehmigt" || r.status === "ausstehend") && new Date(r.endDate) >= new Date())
-      .reduce((sum, r) => sum + calculateWorkingDays(r.startDate, r.endDate), 0);
+      .reduce((sum, r) => sum + r.days, 0);
 
     return {
       total,
