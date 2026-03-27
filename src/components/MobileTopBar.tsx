@@ -5,6 +5,7 @@ import { Menu, X } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { useState } from "react";
 import Sidebar from "./Sidebar";
+import NotificationBell from "./NotificationBell";
 
 export default function MobileTopBar() {
   const { user } = useAuth();
@@ -28,8 +29,10 @@ export default function MobileTopBar() {
             </span>
           </Link>
         </div>
-        <Link href="/profile">
-          {user?.avatar ? (
+        <div className="flex items-center gap-2">
+          <NotificationBell />
+          <Link href="/profile">
+            {user?.avatar ? (
             <img
               src={user.avatar}
               alt={`${user.firstName} ${user.lastName}`}
@@ -40,7 +43,8 @@ export default function MobileTopBar() {
               {user?.firstName?.[0]}{user?.lastName?.[0]}
             </div>
           )}
-        </Link>
+          </Link>
+        </div>
       </header>
 
       {/* Mobile slide-out menu overlay */}

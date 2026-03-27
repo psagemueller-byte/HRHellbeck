@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { UserRole } from "@/types";
+import NotificationBell from "./NotificationBell";
 
 const roleLabels: Record<UserRole, { label: string; icon: typeof Crown; color: string }> = {
   admin: { label: "Administrator", icon: Crown, color: "text-amber-600" },
@@ -51,12 +52,15 @@ export default function Sidebar() {
 
   return (
     <aside className="fixed left-0 top-0 h-screen w-64 bg-white border-r border-[var(--color-border)] flex flex-col z-50">
-      {/* Logo */}
-      <div className="h-16 flex items-center px-6 border-b border-[var(--color-border)]">
-        <img src="/logo_hellbeck.svg" alt="Hellbeck" className="h-9 mr-3" />
-        <span className="text-lg font-bold text-[var(--color-text-primary)]">
-          HR Portal
-        </span>
+      {/* Logo + Notification */}
+      <div className="h-16 flex items-center justify-between px-6 border-b border-[var(--color-border)]">
+        <div className="flex items-center">
+          <img src="/logo_hellbeck.svg" alt="Hellbeck" className="h-9 mr-3" />
+          <span className="text-lg font-bold text-[var(--color-text-primary)]">
+            HR Portal
+          </span>
+        </div>
+        <NotificationBell />
       </div>
 
       {/* Navigation */}
