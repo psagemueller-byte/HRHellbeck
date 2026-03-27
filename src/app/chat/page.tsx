@@ -4,6 +4,7 @@ import { useState, useRef, useEffect } from "react";
 import { useAuth } from "@/lib/auth-context";
 import { sanitizeAndLimit } from "@/lib/sanitize";
 import EmojiPicker from "@/components/EmojiPicker";
+import GifPicker from "@/components/GifPicker";
 import {
   MessageSquare,
   Send,
@@ -35,6 +36,17 @@ function formatDay(timestamp: string) {
     month: "long",
     year: "numeric",
   });
+}
+
+const GIF_PREFIX = "[GIF]";
+function isGifMessage(content: string): boolean {
+  return content.startsWith(GIF_PREFIX);
+}
+function getGifInfo(content: string): { src: string; emoji: string } {
+  const raw = content.slice(GIF_PREFIX.length);
+  // Format: "/gifs/id.gif|emoji" or just "/gifs/id.gif"
+  const parts = raw.split("|");
+  return { src: parts[0], emoji: parts[1] || "🎬" };
 }
 
 export default function ChatPage() {
@@ -78,6 +90,11 @@ export default function ChatPage() {
     if (!sanitized) return;
     sendMessage(selectedPartnerId, sanitized);
     setMessageInput("");
+  };
+
+  const handleSendGif = (gifId: string, gifSrc: string, gifEmoji: string) => {
+    if (!selectedPartnerId) return;
+    sendMessage(selectedPartnerId, `${GIF_PREFIX}${gifSrc}|${gifEmoji}`);
   };
 
   const handleStartNewChat = (partner: User) => {
@@ -237,7 +254,7 @@ export default function ChatPage() {
                       </div>
                       <p className={`text-xs truncate mt-0.5 ${conv.unreadCount > 0 ? "text-[var(--color-text-primary)] font-medium" : "text-[var(--color-text-muted)]"}`}>
                         {conv.lastMessage.senderId === user?.id ? "Du: " : ""}
-                        {conv.lastMessage.content}
+                        {isGifMessage(conv.lastMessage.content) ? "🎬 GIF" : conv.lastMessage.content}
                       </p>
                     </div>
                   </button>
@@ -303,13 +320,42 @@ export default function ChatPage() {
                             className={`flex mb-2 ${isMine ? "justify-end" : "justify-start"}`}
                           >
                             <div
-                              className={`max-w-[70%] px-3.5 py-2 rounded-2xl ${
+                              className={`max-w-[70%] rounded-2xl ${
+                                isGifMessage(msg.content)
+                                  ? "p-1"
+                                  : "px-3.5 py-2"
+                              } ${
                                 isMine
                                   ? "bg-[var(--color-primary-600)] text-white rounded-br-md"
                                   : "bg-[var(--color-surface-tertiary)] text-[var(--color-text-primary)] rounded-bl-md"
                               }`}
                             >
-                              <p className="text-sm leading-relaxed break-words">{msg.content}</p>
+                              {isGifMessage(msg.content) ? (
+                                (() => {
+                                  const info = getGifInfo(msg.content);
+                                  return (
+                                    <div className="w-48 h-32 rounded-xl overflow-hidden bg-[var(--color-surface-dim)] flex items-center justify-center">
+                                      <img
+                                        src={info.src}
+                                        alt="GIF"
+                                        className="w-full h-full object-cover"
+                                        loading="lazy"
+                                        onError={(e) => {
+                                          // Fallback to emoji if GIF file not found
+                                          const target = e.currentTarget;
+                                          target.style.display = "none";
+                                          const parent = target.parentElement;
+                                          if (parent) {
+                                            parent.innerHTML = `<span class="text-5xl">${info.emoji}</span>`;
+                                          }
+                                        }}
+                                      />
+                                    </div>
+                                  );
+                                })()
+                              ) : (
+                                <p className="text-sm leading-relaxed break-words">{msg.content}</p>
+                              )}
                               <div className={`flex items-center justify-end gap-1 mt-0.5 ${isMine ? "text-primary-200" : "text-[var(--color-text-muted)]"}`}>
                                 <span className="text-[10px]">
                                   {formatTime(msg.timestamp)}
@@ -338,6 +384,7 @@ export default function ChatPage() {
                 className="px-4 py-3 border-t border-[var(--color-border)] flex items-center gap-2"
               >
                 <EmojiPicker onSelect={(emoji) => setMessageInput((prev) => prev + emoji)} />
+                <GifPicker onSelect={handleSendGif} />
                 <input
                   type="text"
                   value={messageInput}
