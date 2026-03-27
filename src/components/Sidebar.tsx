@@ -51,7 +51,7 @@ export default function Sidebar() {
   const RoleBadgeIcon = roleInfo?.icon;
 
   return (
-    <aside className="fixed left-0 top-0 h-screen w-64 bg-white border-r border-[var(--color-border)] flex flex-col z-50">
+    <aside className="fixed left-0 top-0 h-screen w-64 bg-white border-r border-[var(--color-border)] flex flex-col z-50 overflow-visible">
       {/* Logo + Notification */}
       <div className="h-16 flex items-center justify-between px-6 border-b border-[var(--color-border)]">
         <img src="/logo_hellbeck.svg" alt="Hellbeck" className="h-9" />
