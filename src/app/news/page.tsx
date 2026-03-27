@@ -76,12 +76,14 @@ const employeePulse = {
 };
 
 export default function NewsPage() {
-  const { user, news, toggleNewsLike, addNews, deleteNews, hasRole } = useAuth();
+  const { user, news, toggleNewsLike, addNews, editNews, deleteNews, hasRole } = useAuth();
 
   const canCreate = hasRole("autor");
   const isAdmin = hasRole("admin");
 
   const [showEditor, setShowEditor] = useState(false);
+  const [editingArticle, setEditingArticle] = useState<NewsArticle | null>(null);
+  const [expandedArticle, setExpandedArticle] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [formError, setFormError] = useState("");
@@ -154,19 +156,41 @@ export default function NewsPage() {
       return;
     }
 
-    const authorName = user ? `${user.firstName} ${user.lastName}` : "Unbekannt";
-
-    addNews({
-      title,
-      excerpt,
-      content,
-      category: formData.category,
-      author: authorName,
-      imageUrl: imagePreview || undefined,
-    });
+    if (editingArticle) {
+      editNews(editingArticle.id, {
+        title,
+        excerpt,
+        content,
+        category: formData.category,
+        imageUrl: imagePreview || undefined,
+      });
+      setEditingArticle(null);
+    } else {
+      const authorName = user ? `${user.firstName} ${user.lastName}` : "Unbekannt";
+      addNews({
+        title,
+        excerpt,
+        content,
+        category: formData.category,
+        author: authorName,
+        imageUrl: imagePreview || undefined,
+      });
+    }
 
     resetForm();
     setShowEditor(false);
+  };
+
+  const startEdit = (article: NewsArticle) => {
+    setFormData({
+      title: article.title,
+      excerpt: article.excerpt,
+      content: article.content,
+      category: article.category as NewsCategory,
+    });
+    setImagePreview(article.imageUrl || null);
+    setEditingArticle(article);
+    setShowEditor(true);
   };
 
   const handleDelete = (newsId: string) => {
@@ -211,10 +235,10 @@ export default function NewsPage() {
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-lg font-bold text-[var(--color-text-primary)] flex items-center gap-2">
                 <PenLine className="h-5 w-5 text-[var(--color-primary-600)]" />
-                Neuer Beitrag
+                {editingArticle ? "Beitrag bearbeiten" : "Neuer Beitrag"}
               </h2>
               <button
-                onClick={() => { resetForm(); setShowEditor(false); }}
+                onClick={() => { resetForm(); setEditingArticle(null); setShowEditor(false); }}
                 className="h-8 w-8 rounded-lg hover:bg-[var(--color-surface-tertiary)] flex items-center justify-center"
               >
                 <X className="h-5 w-5 text-[var(--color-text-secondary)]" />
@@ -353,7 +377,7 @@ export default function NewsPage() {
               <div className="flex gap-3 pt-2">
                 <button
                   type="button"
-                  onClick={() => { resetForm(); setShowEditor(false); }}
+                  onClick={() => { resetForm(); setEditingArticle(null); setShowEditor(false); }}
                   className="flex-1 px-4 py-2.5 border border-[var(--color-border)] rounded-lg text-sm font-medium text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-tertiary)] transition-colors"
                 >
                   Abbrechen
@@ -362,7 +386,7 @@ export default function NewsPage() {
                   type="submit"
                   className="flex-1 px-4 py-2.5 bg-[var(--color-primary-600)] hover:bg-[var(--color-primary-700)] text-white rounded-lg text-sm font-medium transition-colors"
                 >
-                  Veröffentlichen
+                  {editingArticle ? "Speichern" : "Veröffentlichen"}
                 </button>
               </div>
             </form>
@@ -430,6 +454,9 @@ export default function NewsPage() {
                   isAdmin={isAdmin}
                   onLike={() => toggleNewsLike(featuredArticle.id)}
                   onDelete={() => setConfirmDelete(featuredArticle.id)}
+                  onEdit={() => startEdit(featuredArticle)}
+                  expanded={expandedArticle === featuredArticle.id}
+                  onToggleExpand={() => setExpandedArticle(expandedArticle === featuredArticle.id ? null : featuredArticle.id)}
                 />
               </div>
             )}
@@ -501,6 +528,7 @@ export default function NewsPage() {
                     isAdmin={isAdmin}
                     onLike={() => toggleNewsLike(article.id)}
                     onDelete={() => setConfirmDelete(article.id)}
+                    onEdit={() => startEdit(article)}
                   />
                 ))}
               </div>
@@ -521,12 +549,18 @@ function FeaturedCard({
   isAdmin,
   onLike,
   onDelete,
+  onEdit,
+  expanded,
+  onToggleExpand,
 }: {
   article: NewsArticle;
   user: { id: string } | null;
   isAdmin: boolean;
   onLike: () => void;
   onDelete: () => void;
+  onEdit: () => void;
+  expanded: boolean;
+  onToggleExpand: () => void;
 }) {
   const isLiked = user ? article.likes.includes(user.id) : false;
 
@@ -565,19 +599,29 @@ function FeaturedCard({
         <p className="text-[16px] sm:text-[18px] text-[var(--color-text-body)] leading-relaxed mb-2">
           {article.excerpt}
         </p>
-        <p className="text-sm text-[var(--color-text-muted)] leading-relaxed mb-6 line-clamp-3">
+        <p className={`text-sm text-[var(--color-text-muted)] leading-relaxed mb-6 ${expanded ? "" : "line-clamp-3"}`}>
           {article.content}
         </p>
 
         <div className="mt-auto flex items-center justify-between gap-4">
           <button
+            onClick={onToggleExpand}
             className="inline-flex items-center gap-2 bg-gradient-to-r from-[var(--color-primary-600)] to-[var(--color-primary-400)] text-white text-sm font-medium rounded-md px-6 py-3 hover:opacity-90 transition-opacity"
           >
-            Artikel lesen
-            <ArrowRight className="h-4 w-4" />
+            {expanded ? "Weniger anzeigen" : "Artikel lesen"}
+            <ArrowRight className={`h-4 w-4 transition-transform ${expanded ? "rotate-90" : ""}`} />
           </button>
 
           <div className="flex items-center gap-2">
+            {isAdmin && (
+              <button
+                onClick={onEdit}
+                className="flex items-center gap-1 px-2.5 py-1.5 rounded-full text-xs font-medium bg-[var(--color-surface-tertiary)] text-[var(--color-text-muted)] hover:bg-blue-50 hover:text-blue-600 transition-all"
+                title="Beitrag bearbeiten"
+              >
+                <PenLine className="h-3.5 w-3.5" />
+              </button>
+            )}
             <button
               onClick={onLike}
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-all ${
@@ -618,12 +662,14 @@ function SecondaryCard({
   isAdmin,
   onLike,
   onDelete,
+  onEdit,
 }: {
   article: NewsArticle;
   user: { id: string } | null;
   isAdmin: boolean;
   onLike: () => void;
   onDelete: () => void;
+  onEdit: () => void;
 }) {
   const isLiked = user ? article.likes.includes(user.id) : false;
 
@@ -666,6 +712,15 @@ function SecondaryCard({
             Von {article.author}
           </p>
           <div className="flex items-center gap-1.5">
+            {isAdmin && (
+              <button
+                onClick={onEdit}
+                className="flex items-center px-2 py-1 rounded-full text-xs bg-[var(--color-surface-tertiary)] text-[var(--color-text-muted)] hover:bg-blue-50 hover:text-blue-600 transition-all"
+                title="Bearbeiten"
+              >
+                <PenLine className="h-3 w-3" />
+              </button>
+            )}
             <button
               onClick={onLike}
               className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium transition-all ${

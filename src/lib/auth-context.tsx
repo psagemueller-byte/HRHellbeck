@@ -60,6 +60,7 @@ interface AuthContextType {
   getPendingApprovalsCount: () => number;
   toggleNewsLike: (newsId: string) => void;
   addNews: (data: Omit<NewsArticle, "id" | "publishedAt" | "likes">) => void;
+  editNews: (newsId: string, data: { title?: string; excerpt?: string; content?: string; category?: string; imageUrl?: string }) => void;
   deleteNews: (newsId: string) => void;
   addVacationRequest: (req: Omit<VacationRequest, "id" | "createdAt" | "status">) => void;
   approveVacation: (requestId: string) => void;
@@ -687,6 +688,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  const editNews = useCallback((newsId: string, data: { title?: string; excerpt?: string; content?: string; category?: string; imageUrl?: string }) => {
+    setNews((prev) => prev.map((n) => n.id === newsId ? { ...n, ...data } as NewsArticle : n));
+    if (!MOCK_AUTH) {
+      fetch("/api/news", { method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "update", id: newsId, ...data }),
+      }).catch(() => {});
+    }
+  }, []);
+
   const deleteNews = useCallback((newsId: string) => {
     setNews((prev) => prev.filter((n) => n.id !== newsId));
     if (!MOCK_AUTH) {
@@ -1165,6 +1175,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         getPendingApprovalsCount,
         toggleNewsLike,
         addNews,
+        editNews,
         deleteNews,
         addVacationRequest,
         approveVacation,

@@ -44,6 +44,18 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: true, article: { ...article, publishedAt: article.publishedAt.toISOString() } });
     }
 
+    if (action === "update") {
+      const { id, title, excerpt, content, category, imageUrl } = body;
+      const data: Record<string, string> = {};
+      if (title !== undefined) data.title = title;
+      if (excerpt !== undefined) data.excerpt = excerpt;
+      if (content !== undefined) data.content = content;
+      if (category !== undefined) data.category = category;
+      if (imageUrl !== undefined) data.imageUrl = imageUrl;
+      const updated = await prisma.newsArticle.update({ where: { id }, data });
+      return NextResponse.json({ success: true, article: { ...updated, publishedAt: updated.publishedAt.toISOString() } });
+    }
+
     if (action === "delete") {
       const { id } = body;
       await prisma.newsArticle.delete({ where: { id } });
