@@ -70,7 +70,7 @@ interface AuthContextType {
   updateUserVacationDays: (userId: string, days: number) => void;
   // Vacation cancel requests
   vacationCancelRequests: VacationCancelRequest[];
-  requestVacationCancel: (vacationId: string, reason: string) => void;
+  requestVacationCancel: (vacationId: string, reason: string, cancelDates?: string[]) => void;
   approveVacationCancel: (cancelId: string) => void;
   rejectVacationCancel: (cancelId: string) => void;
   sendMessage: (receiverId: string, content: string) => void;
@@ -805,7 +805,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   // --- Vacation Cancel Requests ---
-  const requestVacationCancel = useCallback((vacationId: string, reason: string) => {
+  const requestVacationCancel = useCallback((vacationId: string, reason: string, cancelDates?: string[]) => {
     if (!user) return;
     const vacation = vacationRequests.find((v) => v.id === vacationId);
     if (!vacation || vacation.status !== "genehmigt" || vacation.userId !== user.id) return;
@@ -814,9 +814,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     );
     if (alreadyRequested) return;
 
+    const cleanReason = sanitizeString(reason).slice(0, 500);
     if (!MOCK_AUTH) {
       fetch("/api/vacations", { method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "cancel-request", vacationId, userId: user.id, reason: sanitizeString(reason).slice(0, 500) }),
+        body: JSON.stringify({ action: "cancel-request", vacationId, userId: user.id, reason: cleanReason, cancelDates: cancelDates || [] }),
       }).then((r) => r.json()).then((res) => {
         if (res.success && res.cancelRequest) {
           setVacationCancelRequests((prev) => [res.cancelRequest, ...prev]);
@@ -827,7 +828,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         id: `cancel-${Date.now()}`,
         vacationId,
         userId: user.id,
-        reason: sanitizeString(reason).slice(0, 500),
+        reason: cleanReason,
+        cancelDates: cancelDates || [],
         status: "ausstehend",
         createdAt: new Date().toISOString(),
       };
@@ -840,6 +842,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const cancelReq = vacationCancelRequests.find((cr) => cr.id === cancelId);
     if (!cancelReq || cancelReq.status !== "ausstehend") return;
 
+    const isPartial = cancelReq.cancelDates && cancelReq.cancelDates.length > 0;
+    const vacation = vacationRequests.find((v) => v.id === cancelReq.vacationId);
+
     setVacationCancelRequests((prev) =>
       prev.map((cr) =>
         cr.id === cancelId
@@ -847,19 +852,45 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           : cr
       )
     );
-    setVacationRequests((prev) =>
-      prev.map((v) =>
-        v.id === cancelReq.vacationId
-          ? { ...v, status: "storniert" as const, approvedBy: user.id, approvedAt: new Date().toISOString().split("T")[0] }
-          : v
-      )
-    );
+
+    if (isPartial && vacation) {
+      // Partial cancellation: reduce days count
+      const cancelledDays = cancelReq.cancelDates!.length;
+      const newDays = Math.max(0, vacation.days - cancelledDays);
+      if (newDays === 0) {
+        // All days cancelled → fully storniert
+        setVacationRequests((prev) =>
+          prev.map((v) => v.id === cancelReq.vacationId
+            ? { ...v, status: "storniert" as const, days: 0 }
+            : v
+          )
+        );
+      } else {
+        // Partial: update days count (keep genehmigt)
+        setVacationRequests((prev) =>
+          prev.map((v) => v.id === cancelReq.vacationId
+            ? { ...v, days: newDays }
+            : v
+          )
+        );
+      }
+    } else {
+      // Full cancellation
+      setVacationRequests((prev) =>
+        prev.map((v) =>
+          v.id === cancelReq.vacationId
+            ? { ...v, status: "storniert" as const, approvedBy: user.id, approvedAt: new Date().toISOString().split("T")[0] }
+            : v
+        )
+      );
+    }
+
     if (!MOCK_AUTH) {
       fetch("/api/vacations", { method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action: "cancel-approve", cancelId }),
       }).catch(() => {});
     }
-  }, [user, vacationCancelRequests]);
+  }, [user, vacationCancelRequests, vacationRequests]);
 
   const rejectVacationCancel = useCallback((cancelId: string) => {
     if (!user) return;

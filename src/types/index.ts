@@ -125,6 +125,7 @@ export interface VacationCancelRequest {
   vacationId: string;
   userId: string;
   reason: string;
+  cancelDates?: string[]; // specific dates to cancel (partial cancellation)
   status: "ausstehend" | "genehmigt" | "abgelehnt";
   createdAt: string;
   decidedBy?: string;

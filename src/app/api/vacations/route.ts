@@ -71,9 +71,9 @@ export async function POST(req: NextRequest) {
     }
 
     if (action === "cancel-request") {
-      const { vacationId, userId, reason } = body;
+      const { vacationId, userId, reason, cancelDates } = body;
       const cancel = await prisma.vacationCancelRequest.create({
-        data: { vacationId, userId, reason, status: "ausstehend" },
+        data: { vacationId, userId, reason, cancelDates: cancelDates || [], status: "ausstehend" },
       });
       return NextResponse.json({ success: true, cancelRequest: { ...cancel, createdAt: cancel.createdAt.toISOString() } });
     }
@@ -84,11 +84,26 @@ export async function POST(req: NextRequest) {
         where: { id: cancelId },
         data: { status: "genehmigt", decidedBy: session.user.id, decidedAt: new Date().toISOString() },
       });
-      // Cancel approved → set vacation to "storniert" (not "abgelehnt")
-      await prisma.vacationRequest.update({
-        where: { id: cancel.vacationId },
-        data: { status: "storniert" },
-      });
+
+      const isPartial = cancel.cancelDates && cancel.cancelDates.length > 0;
+      if (isPartial) {
+        // Partial cancellation: reduce days
+        const vacation = await prisma.vacationRequest.findUnique({ where: { id: cancel.vacationId } });
+        if (vacation) {
+          const newDays = Math.max(0, vacation.days - cancel.cancelDates.length);
+          await prisma.vacationRequest.update({
+            where: { id: cancel.vacationId },
+            data: newDays === 0 ? { status: "storniert", days: 0 } : { days: newDays },
+          });
+        }
+      } else {
+        // Full cancellation
+        await prisma.vacationRequest.update({
+          where: { id: cancel.vacationId },
+          data: { status: "storniert" },
+        });
+      }
+
       return NextResponse.json({ success: true, cancelRequest: { ...cancel, createdAt: cancel.createdAt.toISOString() } });
     }
 

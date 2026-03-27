@@ -146,14 +146,15 @@ model VacationRequest {
 // ============================================
 
 model VacationCancelRequest {
-  id         String   @id @default(cuid())
-  vacationId String
-  userId     String
-  reason     String
-  status     String   @default("ausstehend") // ausstehend, genehmigt, abgelehnt
-  decidedBy  String?
-  decidedAt  String?
-  createdAt  DateTime @default(now())
+  id          String   @id @default(cuid())
+  vacationId  String
+  userId      String
+  reason      String
+  cancelDates String[] @default([]) // specific dates for partial cancellation
+  status      String   @default("ausstehend") // ausstehend, genehmigt, abgelehnt
+  decidedBy   String?
+  decidedAt   String?
+  createdAt   DateTime @default(now())
 
   vacation VacationRequest @relation(fields: [vacationId], references: [id], onDelete: Cascade)
   user     User            @relation(fields: [userId], references: [id], onDelete: Cascade)

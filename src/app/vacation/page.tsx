@@ -95,9 +95,10 @@ export default function VacationPage() {
   });
   const [formError, setFormError] = useState("");
   // Cancel request state
-  const [cancelModal, setCancelModal] = useState<{ vacationId: string } | null>(null);
+  const [cancelModal, setCancelModal] = useState<{ vacationId: string; startDate: string; endDate: string; days: number } | null>(null);
   const [cancelReason, setCancelReason] = useState("");
   const [cancelError, setCancelError] = useState("");
+  const [cancelSelectedDates, setCancelSelectedDates] = useState<string[]>([]);
 
   const myRequests = vacationRequests.filter((r) => r.userId === user?.id);
   const pendingApprovals = vacationRequests.filter(
@@ -177,6 +178,21 @@ export default function VacationPage() {
     setFormData({ startDate: "", endDate: "", type: "urlaub", reason: "" });
   };
 
+  // Generate working days between two dates
+  const getWorkingDaysBetween = (start: string, end: string): string[] => {
+    const days: string[] = [];
+    const current = new Date(start);
+    const endDate = new Date(end);
+    while (current <= endDate) {
+      const dayOfWeek = current.getDay();
+      if (dayOfWeek !== 0 && dayOfWeek !== 6) {
+        days.push(current.toISOString().split("T")[0]);
+      }
+      current.setDate(current.getDate() + 1);
+    }
+    return days;
+  };
+
   const handleCancelRequest = () => {
     setCancelError("");
     if (!cancelModal) return;
@@ -185,9 +201,28 @@ export default function VacationPage() {
       setCancelError("Bitte einen Grund für die Stornierung angeben.");
       return;
     }
-    requestVacationCancel(cancelModal.vacationId, sanitizeAndLimit(trimmedReason, 500));
+    if (cancelSelectedDates.length === 0) {
+      setCancelError("Bitte mindestens einen Tag auswählen.");
+      return;
+    }
+    const allDays = getWorkingDaysBetween(cancelModal.startDate, cancelModal.endDate);
+    const isFullCancel = cancelSelectedDates.length >= allDays.length;
+    requestVacationCancel(
+      cancelModal.vacationId,
+      sanitizeAndLimit(trimmedReason, 500),
+      isFullCancel ? undefined : cancelSelectedDates
+    );
     setCancelModal(null);
     setCancelReason("");
+    setCancelSelectedDates([]);
+  };
+
+  const openCancelModal = (req: { id: string; startDate: string; endDate: string; days: number }) => {
+    const allDays = getWorkingDaysBetween(req.startDate, req.endDate);
+    setCancelModal({ vacationId: req.id, startDate: req.startDate, endDate: req.endDate, days: req.days });
+    setCancelSelectedDates(allDays); // select all by default
+    setCancelReason("");
+    setCancelError("");
   };
 
   const getUserName = (userId: string) => {
@@ -511,7 +546,7 @@ export default function VacationPage() {
               </h2>
             </div>
             <p className="text-sm text-[var(--color-text-secondary)] mb-4">
-              Du kannst genehmigten Urlaub nicht direkt löschen. Dein Vorgesetzter muss der Stornierung zustimmen.
+              Wähle die Tage aus, die du stornieren möchtest. Dein Vorgesetzter muss der Stornierung zustimmen.
             </p>
 
             {cancelError && (
@@ -519,6 +554,46 @@ export default function VacationPage() {
                 {cancelError}
               </div>
             )}
+
+            {/* Day selection */}
+            <div className="mb-4">
+              <div className="flex items-center justify-between mb-2">
+                <label className="block text-sm font-medium text-[var(--color-text-primary)]">
+                  Tage auswählen ({cancelSelectedDates.length} von {getWorkingDaysBetween(cancelModal.startDate, cancelModal.endDate).length} gewählt)
+                </label>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const allDays = getWorkingDaysBetween(cancelModal.startDate, cancelModal.endDate);
+                    setCancelSelectedDates(cancelSelectedDates.length === allDays.length ? [] : allDays);
+                  }}
+                  className="text-xs text-[var(--color-primary-600)] font-medium hover:underline"
+                >
+                  {cancelSelectedDates.length === getWorkingDaysBetween(cancelModal.startDate, cancelModal.endDate).length ? "Keine auswählen" : "Alle auswählen"}
+                </button>
+              </div>
+              <div className="max-h-40 overflow-y-auto border border-[var(--color-border)] rounded-lg p-2 space-y-1">
+                {getWorkingDaysBetween(cancelModal.startDate, cancelModal.endDate).map((date) => (
+                  <label key={date} className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-[var(--color-surface-tertiary)] cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={cancelSelectedDates.includes(date)}
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          setCancelSelectedDates((prev) => [...prev, date].sort());
+                        } else {
+                          setCancelSelectedDates((prev) => prev.filter((d) => d !== date));
+                        }
+                      }}
+                      className="rounded border-[var(--color-border)] text-[var(--color-primary-600)] focus:ring-[var(--color-primary-500)]"
+                    />
+                    <span className="text-sm text-[var(--color-text-primary)]">
+                      {new Date(date).toLocaleDateString("de-DE", { weekday: "short", day: "numeric", month: "short", year: "numeric" })}
+                    </span>
+                  </label>
+                ))}
+              </div>
+            </div>
 
             <div>
               <label className="block text-sm font-medium text-[var(--color-text-primary)] mb-1.5">
@@ -528,7 +603,7 @@ export default function VacationPage() {
                 value={cancelReason}
                 onChange={(e) => setCancelReason(e.target.value)}
                 placeholder="Warum möchtest du den Urlaub stornieren?"
-                rows={3}
+                rows={2}
                 maxLength={500}
                 className="w-full px-3 py-2.5 border border-[var(--color-border)] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary-500)] resize-none"
               />
@@ -540,6 +615,7 @@ export default function VacationPage() {
                   setCancelModal(null);
                   setCancelReason("");
                   setCancelError("");
+                  setCancelSelectedDates([]);
                 }}
                 className="flex-1 px-4 py-2.5 border border-[var(--color-border)] rounded-lg text-sm font-medium text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-tertiary)] transition-colors"
               >
@@ -648,7 +724,7 @@ export default function VacationPage() {
                     <div className="flex items-center gap-2 flex-shrink-0">
                       {req.status === "genehmigt" && !pendingCancel && (
                         <button
-                          onClick={() => setCancelModal({ vacationId: req.id })}
+                          onClick={() => openCancelModal(req)}
                           className="flex items-center gap-1.5 px-3 py-2 bg-amber-50 text-amber-700 hover:bg-amber-100 rounded-lg text-xs font-medium transition-colors"
                           title="Stornierung anfragen"
                         >
