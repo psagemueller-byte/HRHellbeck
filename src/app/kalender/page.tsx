@@ -50,9 +50,18 @@ function formatDateStr(year: number, month: number, day: number) {
 
 export default function KalenderPage() {
   const {
-    user, allUsers, departments, shiftEntries, vacationRequests, addShift, deleteShift,
+    user, allUsers, departments, shiftEntries, vacationRequests, vacationCancelRequests, addShift, deleteShift,
     getShiftsForUser, addVacationRequest, hasRole, getVacationBalance,
   } = useAuth();
+
+  // Collect all cancelled dates from approved cancel requests
+  const cancelledDates = useMemo(() => {
+    const dates = new Set<string>();
+    vacationCancelRequests
+      .filter((cr) => cr.status === "genehmigt" && cr.cancelDates && cr.cancelDates.length > 0)
+      .forEach((cr) => cr.cancelDates!.forEach((d) => dates.add(d)));
+    return dates;
+  }, [vacationCancelRequests]);
   const [currentMonth, setCurrentMonth] = useState(new Date().getMonth());
   const [currentYear, setCurrentYear] = useState(new Date().getFullYear());
   const [selectedUserId, setSelectedUserId] = useState<string>(user?.id || "");
@@ -97,7 +106,7 @@ export default function KalenderPage() {
 
   const userVacations = useMemo(() => {
     return vacationRequests.filter((v) => {
-      if (v.userId !== viewUserId || v.status !== "genehmigt") return false;
+      if (v.userId !== viewUserId || v.status !== "genehmigt" || v.days === 0) return false;
       const start = new Date(v.startDate);
       const end = new Date(v.endDate);
       const monthStart = new Date(currentYear, currentMonth, 1);
@@ -124,6 +133,8 @@ export default function KalenderPage() {
       const start = new Date(v.startDate); const end = new Date(v.endDate);
       for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
         const key = formatDateStr(d.getFullYear(), d.getMonth(), d.getDate());
+        // Skip cancelled dates
+        if (cancelledDates.has(key)) continue;
         map[key] = { ...map[key], vacation: true, vacationType: v.type };
       }
     });
@@ -136,7 +147,7 @@ export default function KalenderPage() {
     });
     Object.entries(GERMAN_HOLIDAYS).forEach(([date, name]) => { map[date] = { ...map[date], holiday: name }; });
     return map;
-  }, [shifts, userVacations, pendingVacations]);
+  }, [shifts, userVacations, pendingVacations, cancelledDates]);
 
   const daysInMonth = getDaysInMonth(currentYear, currentMonth);
   const firstDay = getFirstDayOfWeek(currentYear, currentMonth);
@@ -167,6 +178,7 @@ export default function KalenderPage() {
 
   // Check if a date falls within approved vacation for the viewed user
   const getVacationConflictForDate = (dateStr: string) => {
+    if (cancelledDates.has(dateStr)) return null;
     const checkDate = new Date(dateStr);
     for (const v of vacationRequests) {
       if (v.userId !== viewUserId) continue;
